@@ -1,0 +1,3383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>πNAD Scan — Tu Negocio, Al Día</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=League+Gothic&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;font-family:system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+.cam{flex:1;position:relative;background:#000;overflow:hidden}
+video{width:100%;height:100%;object-fit:cover;display:block}
+canvas.cv{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3}
+canvas#tmp{display:none}
+.tgt{position:absolute;width:50px;height:50px;transform:translate(-50%,-50%);pointer-events:none;z-index:2;border:1.5px dashed rgba(255,255,255,.1);border-radius:50%}
+.guide{position:absolute;width:55px;height:55px;transform:translate(-50%,-50%);pointer-events:none;z-index:5;transition:left .06s,top .06s}
+.guide .r{width:100%;height:100%;border-radius:50%;border:2.5px solid rgba(255,255,255,.25);transition:all .1s}
+.guide .r.near{border-color:rgba(255,220,0,.9);box-shadow:0 0 10px rgba(255,220,0,.4)}
+.guide .r.lock{border-color:#0f8;box-shadow:0 0 16px rgba(0,255,136,.5)}
+.guide .r.target{animation:pnPulse .8s ease-in-out infinite;border-color:#fc5;box-shadow:0 0 20px rgba(255,204,85,.5)}
+@keyframes pnPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.7}}
+.guide .d{position:absolute;top:50%;left:50%;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.3);transform:translate(-50%,-50%);transition:background .1s}
+.guide .r.lock .d{background:#0f8}
+.guide .l{position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:7px;color:rgba(255,255,255,.35);white-space:nowrap}
+/* ═══ PhotoScan-style distance label inside each guide circle ═══ */
+.guide .d-label{
+  position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);
+  font-size:7px;font-weight:600;color:rgba(255,255,255,.45);
+  text-shadow:0 0 4px rgba(0,0,0,.8);white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity .15s;
+  font-family:monospace;letter-spacing:-0.5px;
+}
+.guide .d-label.show{opacity:1;}
+.guide .r.lock ~ .d-label{color:rgba(0,255,136,.5);}
+.guide .r.near ~ .d-label{color:rgba(255,220,0,.6);}
+
+/* ═══ Flecha direccional de inclinación (PhotoScan-style) ═══ */
+.tilt-arrow{
+  position:absolute;top:50%;left:50%;z-index:7;
+  transform:translate(-50%,-50%);
+  font-size:32px;color:rgba(255,204,85,.9);
+  text-shadow:0 0 30px rgba(255,204,85,.3),0 2px 8px rgba(0,0,0,.8);
+  opacity:0;transition:opacity .15s,transform .15s;
+  pointer-events:none;
+}
+.tilt-arrow.show{opacity:1;animation:tiltBounce .6s ease-in-out infinite}
+@keyframes tiltBounce{
+  0%,100%{transform:translate(-50%,-50%) scale(1)}
+  50%{transform:translate(-50%,-50%) scale(1.2)}
+}
+
+
+/* ═══ Ghost overlay para modo Z (paneo vertical) ═══ */
+.z-ghost-canvas{
+  position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;
+  pointer-events:none;opacity:0;
+  transition:opacity .25s ease;
+  object-fit:cover;
+}
+.z-ghost-canvas.interactive{
+  pointer-events:auto;cursor:grab;
+  outline:2px dashed rgba(255,204,0,.5);
+  outline-offset:-3px;
+}
+.z-ghost-canvas.interactive:active{cursor:grabbing;outline-color:rgba(255,204,0,.8);}
+.z-ghost-canvas.zoomed{outline-color:rgba(0,200,255,.6);}
+.z-ghost-handle{
+  position:absolute;left:50%;bottom:-14px;z-index:7;
+  width:28px;height:28px;margin-left:-14px;
+  background:rgba(255,204,0,.3);border:2px solid rgba(255,204,0,.6);
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:#fc5;opacity:0;transition:opacity .2s ease;
+  pointer-events:auto;cursor:grab;
+}
+.z-ghost-handle.show{opacity:1;}
+.z-ghost-handle:active{cursor:grabbing;background:rgba(255,204,0,.5);}
+.z-ghost-offset{
+  position:absolute;right:10px;top:50px;z-index:7;
+  font-size:10px;color:#fc5;text-shadow:0 0 4px rgba(0,0,0,.8);
+  opacity:0;transition:opacity .2s ease;text-align:right;
+}
+.z-ghost-offset.show{opacity:1;}
+.z-ghost-offset .val{font-weight:bold;font-size:13px;}
+
+.z-ghost-canvas.show{opacity:1}
+.overlap-badge{
+  position:absolute;left:10px;top:50px;z-index:6;
+  width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:bold;transition:all .3s ease;
+  box-shadow:0 0 8px rgba(0,0,0,.4);
+}
+.overlap-badge.ok{background:rgba(0,255,136,.25);color:#0f8;border:2px solid rgba(0,255,136,.5);}
+.overlap-badge.warn{background:rgba(255,204,0,.25);color:#fc5;border:2px solid rgba(255,204,0,.5);animation:pulse-warn .8s ease-in-out infinite;}
+.overlap-badge.danger{background:rgba(255,68,68,.3);color:#f44;border:2px solid rgba(255,68,68,.6);animation:pulse-danger .5s ease-in-out infinite;}
+.overlap-badge.hidden{opacity:0;pointer-events:none;}
+@keyframes pulse-warn{0%,100%{box-shadow:0 0 8px rgba(255,204,0,.3)}50%{box-shadow:0 0 16px rgba(255,204,0,.6)}}
+@keyframes pulse-danger{0%,100%{box-shadow:0 0 8px rgba(255,68,68,.3);transform:scale(1)}50%{box-shadow:0 0 20px rgba(255,68,68,.7);transform:scale(1.1)}}
+#overlapMsg{
+  position:absolute;left:44px;top:54px;z-index:6;
+  font-size:11px;font-weight:600;white-space:nowrap;
+  text-shadow:0 0 6px rgba(0,0,0,.8),0 0 3px rgba(0,0,0,.6);
+  transition:color .3s ease;
+}
+.z-ghost-label{
+  position:absolute;top:5px;left:50%;z-index:4;
+  transform:translateX(-50%);
+  font-size:9px;color:rgba(100,200,255,.7);
+  text-shadow:0 1px 6px rgba(0,0,0,.9);
+  opacity:0;transition:opacity .2s;pointer-events:none;
+  background:rgba(0,0,0,.3);padding:2px 8px;border-radius:6px;
+  white-space:nowrap;
+}
+.z-ghost-label.show{opacity:1}
+
+/* Flecha vertical para guía de paneo en modo Z */
+.z-arrow{
+  position:absolute;bottom:90px;left:50%;z-index:7;
+  transform:translateX(-50%) translateY(0);
+  font-size:28px;color:rgba(100,200,255,.8);
+  text-shadow:0 0 20px rgba(100,200,255,.3),0 2px 8px rgba(0,0,0,.8);
+  opacity:0;transition:opacity .2s,transform .15s;
+  pointer-events:none;
+}
+.z-arrow.show{opacity:1;animation:zArrowBounce .7s ease-in-out infinite}
+@keyframes zArrowBounce{
+  0%,100%{transform:translateX(-50%) translateY(0)}
+  50%{transform:translateX(-50%) translateY(6px)}
+}
+/* Flecha horizontal para guía de paneo en modo Z-width */
+.z-arrow-right{
+  position:absolute;top:50%;right:16px;z-index:7;
+  transform:translateY(-50%);
+  font-size:28px;color:rgba(100,200,255,.8);
+  text-shadow:0 0 20px rgba(100,200,255,.3),0 2px 8px rgba(0,0,0,.8);
+  opacity:0;transition:opacity .2s;
+  pointer-events:none;
+}
+.z-arrow-right.show{opacity:1;animation:zArrowRightBounce .7s ease-in-out infinite}
+@keyframes zArrowRightBounce{
+  0%,100%{transform:translateY(-50%) translateX(0)}
+  50%{transform:translateY(-50%) translateX(6px)}
+}
+.z-arrow-label{
+  position:absolute;bottom:56px;left:50%;z-index:7;
+  transform:translateX(-50%);
+  font-size:10px;font-weight:600;color:rgba(100,200,255,.75);
+  text-shadow:0 1px 8px rgba(0,0,0,.9);
+  opacity:0;transition:opacity .2s;pointer-events:none;
+  white-space:nowrap;background:rgba(0,0,0,.3);padding:2px 10px;border-radius:6px;
+}
+.z-arrow-label.show{opacity:1}
+/* Etiqueta para ghost lateral (Z-width) */
+.z-ghost-label-right{
+  position:absolute;left:5px;top:50%;z-index:4;
+  transform:translateY(-50%);
+  font-size:9px;color:rgba(100,200,255,.7);
+  text-shadow:0 1px 6px rgba(0,0,0,.9);
+  opacity:0;transition:opacity .2s;pointer-events:none;
+  background:rgba(0,0,0,.3);padding:2px 8px;border-radius:6px;
+  white-space:nowrap;
+}
+.z-ghost-label-right.show{opacity:1}
+/* Overlap indicator ring (vertical) */
+.z-overlap-ring{
+  position:absolute;left:10%;right:10%;z-index:3;
+  border:1.5px dashed rgba(100,200,255,.3);
+  border-radius:4px;pointer-events:none;
+  opacity:0;transition:opacity .25s;
+}
+.z-overlap-ring.show{opacity:1}
+/* Overlap indicator ring (horizontal) */
+.z-overlap-ring-right{
+  position:absolute;top:10%;bottom:10%;z-index:3;
+  border:1.5px dashed rgba(100,200,255,.3);
+  border-radius:4px;pointer-events:none;
+  opacity:0;transition:opacity .25s;
+}
+.z-overlap-ring-right.show{opacity:1}
+
+
+/* ═══ Indicador de esquina activa ═══ */
+.corner-guide{
+  position:absolute;top:50%;left:50%;z-index:7;
+  transform:translate(-50%,-50%);
+  text-align:center;opacity:0;
+  transition:opacity .2s;pointer-events:none;
+}
+.corner-guide.show{opacity:1}
+.corner-guide #cornerLabel{
+  display:block;font-size:18px;font-weight:700;
+  color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.9);
+  margin-top:8px;
+}
+/* Upload progress bar for Z mode */
+.upload-progress-wrap{
+  position:absolute;bottom:62px;left:50%;z-index:6;
+  transform:translateX(-50%);
+  width:60%;max-width:200px;height:4px;
+  border-radius:2px;overflow:hidden;
+  background:rgba(255,255,255,.06);
+  opacity:1;transition:opacity .25s;
+}
+.upload-progress-wrap.hidden{opacity:0;pointer-events:none;}
+.upload-progress-fill{
+  height:100%;width:0%;
+  border-radius:2px;
+  transition:width .25s cubic-bezier(.34,1.56,.64,1);
+}
+.upload-progress-text{
+  position:absolute;top:6px;left:50%;z-index:6;
+  transform:translateX(-50%);
+  font-size:9px;font-weight:600;
+  color:rgba(255,255,255,.5);
+  text-shadow:0 1px 3px rgba(0,0,0,.8);
+  white-space:nowrap;
+  opacity:0;transition:opacity .2s;
+}
+.upload-progress-text.show{opacity:1;}
+
+/* Animated thumbnail status badges */
+.th-badge{
+  position:absolute;top:-4px;right:-4px;z-index:3;
+  width:18px;height:18px;border-radius:50%;
+  font-size:10px;font-weight:bold;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 6px rgba(0,0,0,.5);
+  transform:scale(0);transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+}
+.th-badge.show{transform:scale(1);}
+.th-badge.uploading{
+  width:12px;height:12px;top:2px;right:2px;
+  border:2px solid rgba(100,200,255,.5);
+  border-top-color:#8cf;
+  border-radius:50%;
+  background:transparent;
+  animation:thSpinner .6s linear infinite;
+}
+.th-badge.ok{background:#0f8;color:#000;animation:thPop .3s ease;}
+.th-badge.fail{background:#f44;color:#fff;animation:thShake .4s ease;}
+.th-badge.warn{background:#fc5;color:#241609;}
+@keyframes thSpinner{to{transform:rotate(360deg);}}
+@keyframes thPop{
+  0%{transform:scale(0);}
+  60%{transform:scale(1.3);}
+  100%{transform:scale(1);}
+}
+@keyframes thShake{
+  0%,100%{transform:scale(1) translateX(0);}
+  25%{transform:scale(1.2) translateX(-3px);}
+  50%{transform:scale(1.1) translateX(3px);}
+  75%{transform:scale(1.15) translateX(-2px);}
+}
+.th{position:relative;}
+.th.uploading{border-color:rgba(100,200,255,.4);}
+.th.ok{border-color:#0f8;}
+.th.fail{border-color:#f44;}
+
+/* Barra de progreso del tilt */
+.tilt-bar{
+  width:120px;height:4px;background:rgba(255,255,255,.1);
+  border-radius:2px;margin:8px auto 0;overflow:hidden;
+}
+.tilt-fill{
+  height:100%;width:0%;background:linear-gradient(90deg,#fc5,#0f8);
+  border-radius:2px;transition:width .1s;
+}
+
+.shots{position:absolute;top:6px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:6}
+.sd{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);transition:all .2s}
+.sd.done{background:#0f8;border-color:#0f8}
+.sd.now{border-color:#0f5;transform:scale(1.2)}
+.msg{position:absolute;bottom:68px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.9);z-index:6;text-align:center;background:rgba(0,0,0,.5);padding:4px 12px;border-radius:8px}
+.msg b{color:#0f5}
+.cap{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:6}
+.cap button{width:58px;height:58px;border-radius:50%;border:3px solid #fff;background:rgba(255,255,255,.06);cursor:pointer;transition:all .1s}
+.cap button:active{transform:scale(.85)}
+.cap button.flash{border-color:#0f8;animation:p .3s}
+@keyframes p{0%{box-shadow:0 0 0 0 rgba(0,255,136,.5)}100%{box-shadow:0 0 0 16px rgba(0,255,136,0)}}
+#cp{position:absolute;top:-5px;left:-5px;width:calc(100% + 10px);height:calc(100% + 10px);pointer-events:none}
+#cp svg{width:100%;height:100%;transform:rotate(-90deg)}
+#cp circle{fill:none;stroke-width:2}
+#cp .bg{stroke:rgba(255,255,255,.04)}
+#cp .fg{stroke:#0f5;stroke-dasharray:190;stroke-dashoffset:190;transition:stroke-dashoffset .08s linear}
+.st{position:absolute;top:6px;right:6px;z-index:6;font-size:8px;color:rgba(255,255,255,.4);background:rgba(0,0,0,.4);padding:2px 6px;border-radius:4px}
+.st.uploaded::after {
+  content: '\2713';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 18px; height: 18px;
+  background: #0f8;
+  color: #000;
+  border-radius: 50%;
+  font-size: 11px; font-weight: bold;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3;
+  box-shadow: 0 0 6px rgba(0,255,136,0.6);
+}
+.st.upload-failed::after {
+  content: '\2717';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 18px; height: 18px;
+  background: #f44;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 11px; font-weight: bold;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3;
+  box-shadow: 0 0 6px rgba(255,68,68,0.6);
+}
+
+
+/* ═══ Indicador de giroscopio ═══ */
+.gyro-indicator{
+  display:flex;align-items:center;gap:5px;
+  font-size:9px;color:rgba(255,255,255,.5);cursor:help;
+  padding:3px 7px;border-radius:6px;
+  background:rgba(0,0,0,.3);transition:all .3s;
+}
+.gyro-indicator.on{color:rgba(200,255,200,.9);background:rgba(0,200,100,.12)}
+.gyro-indicator.off{color:rgba(255,200,150,.6);background:rgba(200,100,0,.08)}
+.gyro-dot{
+  width:6px;height:6px;border-radius:50%;transition:all .3s;
+  background:rgba(255,255,255,.15);box-shadow:0 0 3px rgba(0,0,0,.3);
+}
+.gyro-indicator.on .gyro-dot{background:#4c4;box-shadow:0 0 6px rgba(68,204,68,.4)}
+.gyro-indicator.off .gyro-dot{background:#f92;box-shadow:0 0 6px rgba(255,153,34,.3)}
+.strip{background:#111;padding:4px 6px;display:flex;gap:3px;overflow-x:auto;flex-shrink:0;min-height:48px}
+.th{width:40px;height:40px;border-radius:4px;background:#222;border:1.5px solid #333;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.th img{width:100%;height:100%;object-fit:cover}
+.th.ok{border-color:#0f8}
+.th span{color:#555;font-size:8px}
+#bottomBar{background:#111;border-top:1px solid #222;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));display:flex;gap:6px;flex-shrink:0;min-height:50px;z-index:10}
+#bottomBar button{flex:1;padding:14px 10px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;min-height:46px}
+#bottomBar button:disabled{opacity:.25}
+#bottomBar .go{background:#0f5;color:#000}
+#bottomBar .go.ready{background:#0f8;color:#000}
+#bottomBar .rst{background:#333;color:#ddd;border:1px solid #555}
+.spin{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:50}
+.spin.on{display:flex}
+.spin .r{width:36px;height:36px;border:3px solid #333;border-top-color:#0f5;border-radius:50%;animation:s .6s linear infinite;margin-bottom:10px}
+@keyframes s{to{transform:rotate(360deg)}}
+.spin h2{color:#fff;font-size:14px;margin-bottom:3px}
+.spin p{color:#888;font-size:10px}
+.res{position:fixed;inset:0;background:#111;display:none;flex-direction:column;z-index:60;overflow-y:auto}
+.res.on{display:flex}
+.res-h{padding:8px;border-bottom:1px solid #222;display:flex;align-items:center;justify-content:space-between}
+.res-h h2{font-size:13px;color:#0f5}
+.res-h button{background:none;border:none;color:#aaa;font-size:18px;cursor:pointer}
+.res-b{padding:8px;flex:1}
+.res-b img{width:100%;border-radius:5px;margin-bottom:8px}
+.res-b .f{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #222;font-size:11px}
+.res-b .f .k{color:#888}
+.res-b .f .v{color:#fff;font-weight:500}
+
+/* ============================================================
+   πNAD — capa de marca y pantallas guiadas (splash/how/result)
+   No modifica nada del motor de cámara/detección de arriba.
+   ============================================================ */
+:root{
+  --bg-dark:#241609; --panel:#3a2412;
+  --gold:#E4C170; --gold-strong:#D9B158; --gold-deep:#936A31;
+  --terracota:#AC7649; --cream:#F4E0AB;
+  --ok:#7CBE8C; --warn:#E0A45C; --danger:#D9705A;
+  --line: rgba(228,193,112,0.18);
+}
+body{font-family:'Poppins',sans-serif;}
+#pinad-app{
+  max-width:520px;margin:0 auto;min-height:100vh;min-height:100dvh;
+  position:relative;background:
+  radial-gradient(circle at 20% 0%, #3a2410 0%, transparent 55%),
+  radial-gradient(circle at 100% 100%, #2c1a0a 0%, transparent 60%),
+  var(--bg-dark); color:var(--cream);
+  transition:max-width .2s ease;
+}
+.pn-screen{display:none;flex-direction:column;height:100vh;height:100dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:28px 24px 34px;}
+.pn-screen.active{display:flex;}
+.pn-h1{font-family:'League Gothic','Poppins',sans-serif;font-weight:400;text-transform:uppercase;color:#fff;letter-spacing:.5px;}
+.pn-eyebrow{font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);font-weight:600;margin:0 0 6px;}
+.pn-lede{color:rgba(244,224,171,.72);font-size:15px;line-height:1.55;font-weight:300;}
+.pn-spacer{flex:1;}
+
+/* ============================================================
+   Responsivo — la app debe funcionar bien desde un teléfono
+   angosto (320px) hasta un monitor de escritorio, no solo en el
+   ancho con el que se probó originalmente.
+   ============================================================ */
+
+/* Pantallas muy pequeñas (teléfonos económicos, <360px) */
+@media (max-width:359px){
+  .pn-screen{padding:20px 16px 26px;}
+  .pn-title{font-size:36px !important;}
+  .ready-popup-card{padding:24px 18px 20px;}
+}
+
+/* Tablets y teléfonos grandes en horizontal */
+@media (min-width:700px){
+  #pinad-app{max-width:680px;}
+  .pn-screen{padding:40px 48px 46px;}
+  .pn-h1{font-size:38px !important;}
+  .pn-field .row input{font-size:18px;}
+  #historyList{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .hist-card{margin-bottom:0;}
+}
+
+/* Escritorio: la app sigue siendo "mobile-first" en su lógica (una
+   cámara, un flujo lineal), pero en una pantalla ancha no debe verse
+   como una tira angosta flotando en medio de un fondo vacío — se le
+   da presencia de tarjeta con sombra y borde, y más aire interno. */
+@media (min-width:1024px){
+  body{
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;padding:32px 0;
+  }
+  #pinad-app{
+    max-width:760px;min-height:88vh;
+    border-radius:28px;overflow:hidden;
+    box-shadow:0 40px 90px -20px rgba(0,0,0,.65), 0 0 0 1px rgba(228,193,112,.12);
+  }
+  .pn-screen{height:88vh;padding:48px 60px 52px;}
+  #screen-capture-wrap{height:88vh;}
+}
+
+/* Landscape en teléfono (poca altura): evitar que los controles de
+   captura queden apretados o se corten */
+@media (max-height:480px) and (orientation:landscape){
+  .cam-caption{top:60px !important;}
+  .cam-bottom{padding:10px 16px 14px !important;}
+  #bottomBar{min-height:40px;}
+  #bottomBar button{padding:10px;}
+}
+.pn-btn{appearance:none;border:none;cursor:pointer;font-family:'Poppins';font-weight:600;font-size:16px;border-radius:100px;padding:18px 24px;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;transition:transform .12s;}
+.pn-btn:active{transform:scale(.97);}
+.pn-btn-primary{background:linear-gradient(135deg,var(--gold-strong),var(--terracota));color:#241609;box-shadow:0 10px 30px -8px rgba(217,177,88,.55);}
+.pn-btn-ghost{background:transparent;color:var(--cream);border:1.5px solid var(--line);}
+.pn-btn-lg{font-size:19px;padding:22px 24px;}
+#screen-splash{align-items:center;text-align:center;justify-content:center;}
+.pn-logo{width:min(78%,300px);margin:0 auto 6px;display:block;filter:drop-shadow(0 10px 30px rgba(0,0,0,.5));}
+.pn-title{font-size:44px;line-height:.95;margin:18px 0 4px;font-family:'League Gothic';text-transform:uppercase;color:#fff;}
+.pn-title b{color:var(--gold);}
+.pn-sub{color:rgba(244,224,171,.65);font-size:15px;font-weight:300;max-width:320px;margin:0 auto 34px;}
+.pn-pill-row{display:flex;gap:10px;margin:26px 0 8px;flex-wrap:wrap;justify-content:center;}
+.pn-pill{font-size:12px;border:1px solid var(--line);border-radius:100px;padding:8px 14px;color:var(--cream);opacity:.75;}
+#pn-connStatus{font-size:12px;margin-top:14px;opacity:.7;display:flex;align-items:center;gap:6px;justify-content:center;}
+#pn-connStatus .dot{width:8px;height:8px;border-radius:50%;background:var(--warn);}
+#pn-connStatus.ok .dot{background:var(--ok);}
+#pn-connStatus.bad .dot{background:var(--danger);}
+.pn-how-card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:20px;display:flex;gap:16px;align-items:flex-start;margin-bottom:14px;}
+.pn-how-num{flex:none;width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold-strong),var(--terracota));color:#241609;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.pn-how-card h3{font-size:20px;margin:0 0 4px;color:#fff;font-family:'Poppins';font-weight:600;}
+.pn-how-card p{margin:0;font-size:13.5px;color:rgba(244,224,171,.68);font-weight:300;line-height:1.5;}
+.pn-footer{text-align:center;font-size:11px;color:rgba(244,224,171,.35);margin-top:26px;letter-spacing:.5px;}
+#screen-capture-wrap{padding:0;position:relative;}
+#screen-capture-wrap .cam-topbar{position:absolute;top:0;left:0;right:0;z-index:11;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,rgba(20,12,4,.75),transparent);}
+#screen-capture-wrap .cam-topbar .pn-brand{font-family:'League Gothic';font-size:18px;color:#fff;letter-spacing:1px;}
+#screen-capture-wrap .cam-close{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:16px;}
+#screen-processing{align-items:center;justify-content:center;text-align:center;}
+.pn-orb{width:150px;height:150px;border-radius:50%;margin:0 auto 30px;position:relative;background:radial-gradient(circle at 35% 30%, #fff5df, var(--gold) 45%, var(--gold-deep) 100%);box-shadow:0 0 60px 10px rgba(228,193,112,.25);}
+.pn-orb::before,.pn-orb::after{content:"";position:absolute;inset:-14px;border-radius:50%;border:2px solid rgba(228,193,112,.35);animation:pnring 2.2s linear infinite;}
+.pn-orb::after{inset:-28px;animation-duration:3s;border-color:rgba(172,118,73,.3);}
+@keyframes pnring{to{transform:rotate(360deg);}}
+.pn-proc-sub{margin-bottom:20px;}
+#pn-retryWrap{display:none;margin-top:18px;}
+#pn-errText{color:var(--danger);margin-bottom:14px;}
+#screen-result{padding-top:20px;overflow-y:auto;}
+.pn-preview{width:100%;border-radius:18px;overflow:hidden;border:1px solid var(--line);margin-bottom:18px;background:#150c04;max-height:260px;display:flex;align-items:center;justify-content:center;}
+.pn-preview img{width:100%;display:block;object-fit:contain;}
+.pn-conf-banner{display:flex;align-items:center;gap:10px;background:rgba(124,190,140,.12);border:1px solid rgba(124,190,140,.35);color:var(--ok);border-radius:14px;padding:12px 14px;font-size:13px;margin-bottom:18px;}
+.pn-conf-banner.low{background:rgba(224,164,92,.12);border-color:rgba(224,164,92,.4);color:var(--warn);}
+.pn-conf-banner.bad{background:rgba(217,112,90,.12);border-color:rgba(217,112,90,.4);color:var(--danger);}
+.pn-warn-list{font-size:12.5px;color:var(--warn);background:rgba(224,164,92,.1);border:1px solid rgba(224,164,92,.3);border-radius:12px;padding:12px 14px;margin-bottom:14px;line-height:1.6;}
+.pn-field{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:10px;}
+.pn-field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);margin-bottom:6px;font-weight:600;}
+.pn-field .row{display:flex;align-items:center;gap:8px;}
+.pn-field input{flex:1;background:transparent;border:none;color:#fff;font-size:16.5px;font-weight:500;font-family:'Poppins';padding:2px 0;outline:none;}
+.pn-field input::placeholder{color:rgba(244,224,171,.35);font-weight:300;}
+.pn-badge{font-size:10px;color:#241609;background:var(--gold);border-radius:8px;padding:3px 7px;font-weight:700;flex:none;}
+.pn-section-label{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:rgba(244,224,171,.5);margin:22px 0 10px 4px;font-weight:600;}
+.pn-raw-toggle{text-align:center;font-size:12.5px;color:rgba(244,224,171,.5);margin:16px 0 4px;text-decoration:underline;cursor:pointer;}
+#pn-rawText{display:none;white-space:pre-wrap;font-size:11.5px;background:#150c04;border-radius:12px;padding:12px;color:rgba(244,224,171,.6);max-height:180px;overflow:auto;margin-bottom:14px;border:1px solid var(--line);}
+.pn-cta-stack{display:flex;flex-direction:column;gap:12px;margin-top:22px;}
+#pn-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#241609;border:1px solid var(--danger);color:#fff;padding:12px 18px;border-radius:12px;font-size:13px;z-index:99;opacity:0;transition:.25s;max-width:90%;text-align:center;}
+#pn-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* Popup central "5 fotos listas" — aparece encima de la cámara */
+.ready-popup-backdrop{
+  position:absolute;inset:0;z-index:30;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(15,9,3,0.72);backdrop-filter:blur(3px);
+  padding:24px;
+}
+.ready-popup-backdrop.show{display:flex;animation:pnFadeIn .25s ease;}
+@keyframes pnFadeIn{from{opacity:0;}to{opacity:1;}}
+.ready-popup-card{
+  width:100%;max-width:340px;background:var(--panel,#3a2412);
+  border:1px solid var(--line,rgba(228,193,112,.25));
+  border-radius:26px;padding:30px 26px 26px;text-align:center;
+  box-shadow:0 24px 60px -12px rgba(0,0,0,.6);
+  animation:pnPopIn .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes pnPopIn{from{transform:scale(.85);opacity:0;}to{transform:scale(1);opacity:1;}}
+.ready-popup-check{
+  width:64px;height:64px;border-radius:50%;margin:0 auto 16px;
+  background:linear-gradient(135deg,var(--gold-strong,#D9B158),var(--terracota,#AC7649));
+  color:#241609;font-size:32px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.ready-popup-title{
+  font-family:'League Gothic','Poppins',sans-serif;font-size:26px;
+  color:#fff;margin:0 0 8px;text-transform:uppercase;letter-spacing:.5px;
+}
+.ready-popup-sub{
+  font-size:13.5px;color:rgba(244,224,171,.7);font-weight:300;
+  line-height:1.5;margin:0 0 22px;
+}
+.ready-popup-btn-primary{
+  width:100%;border:none;border-radius:100px;padding:16px;
+  font-family:'Poppins';font-weight:700;font-size:16px;color:#241609;
+  background:linear-gradient(135deg,var(--gold-strong,#D9B158),var(--terracota,#AC7649));
+  box-shadow:0 10px 26px -8px rgba(217,177,88,.55);cursor:pointer;
+  margin-bottom:10px;
+}
+.ready-popup-btn-primary:active{transform:scale(.97);}
+.ready-popup-btn-ghost{
+  width:100%;border:1.5px solid rgba(244,224,171,.25);background:transparent;
+  color:rgba(244,224,171,.85);border-radius:100px;padding:13px;
+  font-family:'Poppins';font-size:13.5px;cursor:pointer;margin-bottom:8px;
+}
+
+/* ═══ Overlap warning modal (side-by-side comparison) ═══ */
+.ol-modal-card{max-width:400px;padding:22px 20px 24px;}
+.ol-modal-title{font-size:20px;color:var(--warn,#E0A45C);margin-bottom:6px;}
+.ol-modal-sub{font-size:12.5px;color:rgba(244,224,171,.65);margin-bottom:14px;line-height:1.5;}
+.ol-split{display:flex;gap:6px;margin-bottom:14px;border-radius:12px;overflow:hidden;border:1px solid var(--line,rgba(228,193,112,.2));}
+.ol-split-pane{flex:1;background:#150c04;padding:6px;text-align:center;}
+.ol-split-pane canvas{width:100%;border-radius:6px;display:block;aspect-ratio:3/4;object-fit:contain;}
+.ol-split-label{font-size:9px;color:rgba(244,224,171,.55);margin-top:4px;display:block;}
+.ol-split-pane .badge{font-size:10px;padding:1px 6px;border-radius:4px;display:inline-block;margin-bottom:4px;}
+.ol-badge-ghost{background:rgba(100,200,255,.2);color:#8cf;}
+.ol-badge-frame{background:rgba(255,204,85,.2);color:#fc5;}
+.ol-score-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;}
+.ol-score-pct{font-size:28px;font-weight:700;font-family:'League Gothic','Poppins',sans-serif;}
+.ol-score-pct.good{color:var(--ok,#7CBE8C);}
+.ol-score-pct.warn{color:var(--warn,#E0A45C);}
+.ol-score-pct.bad{color:var(--danger,#D9705A);}
+.ol-score-bar{width:120px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden;}
+.ol-score-fill{height:100%;border-radius:2px;transition:width .3s;}
+.ol-btn-group{display:flex;gap:8px;margin-top:4px;}
+.ol-btn-group button{flex:1;border:none;border-radius:100px;padding:14px 10px;font-family:'Poppins';font-weight:600;font-size:13.5px;cursor:pointer;}
+.ol-btn-group button:active{transform:scale(.97);}
+.ol-btn-retake{background:rgba(224,164,92,.2);color:var(--warn,#E0A45C);border:1.5px solid rgba(224,164,92,.35)!important;}
+.ol-btn-force{background:linear-gradient(135deg,var(--gold-strong,#D9B158),var(--terracota,#AC7649));color:#241609;}
+
+/* Session recovery banner */
+.session-recovery-banner{
+  display:none;position:fixed;top:0;left:0;right:0;z-index:100;
+  background:rgba(15,9,3,0.92);backdrop-filter:blur(4px);
+  border-bottom:1px solid var(--line,rgba(228,193,112,.25));
+  padding:14px 18px;padding-top:calc(14px + env(safe-area-inset-top,0px));
+  text-align:center;
+  animation:slideDown .3s ease;
+}
+.session-recovery-banner.show{display:block;}
+@keyframes slideDown{from{transform:translateY(-100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.sr-icon{display:inline-block;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold-strong),var(--terracota));color:#241609;font-size:20px;line-height:40px;margin-bottom:6px;}
+.sr-title{font-family:'League Gothic';font-size:22px;color:#fff;text-transform:uppercase;letter-spacing:.5px;margin:2px 0;}
+.sr-sub{font-size:12px;color:rgba(244,224,171,.7);margin:2px 0 6px;}
+/* Thumbnail strip dentro del banner de recuperacion */
+.sr-thumbs{display:flex;gap:4px;justify-content:center;margin:0 auto 10px;max-width:240px;overflow:hidden;}
+.sr-thumb{width:36px;height:36px;border-radius:6px;overflow:hidden;border:1.5px solid rgba(244,224,171,.15);background:rgba(0,0,0,.3);flex:none;}
+.sr-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.sr-thumb.empty{display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(244,224,171,.25);}
+.sr-thumb.done{border-color:rgba(124,190,140,.4);}
+.sr-actions{display:flex;gap:8px;justify-content:center;}
+.sr-btn{flex:1;max-width:160px;padding:10px;border-radius:100px;border:none;font-family:'Poppins';font-weight:600;font-size:13px;cursor:pointer;}
+.sr-btn-primary{background:linear-gradient(135deg,var(--gold-strong),var(--terracota));color:#241609;}
+.sr-btn-ghost{background:transparent;border:1.5px solid rgba(244,224,171,.25);color:var(--cream);}
+
+/* Historial */
+.hist-card{
+  background:var(--panel,#3a2412);border:1px solid var(--line,rgba(228,193,112,.2));
+  border-radius:16px;padding:14px 16px;margin-bottom:10px;
+  display:flex;gap:12px;align-items:center;cursor:pointer;
+}
+.hist-card:active{transform:scale(.98);}
+.hist-card img{width:48px;height:48px;object-fit:cover;border-radius:8px;flex:none;background:#150c04;}
+.hist-card .hist-info{flex:1;min-width:0;}
+.hist-card .hist-name{font-size:14.5px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hist-card .hist-meta{font-size:12px;color:rgba(244,224,171,.55);margin-top:2px;}
+.hist-card .hist-total{font-size:15px;color:var(--gold,#E4C170);font-weight:700;flex:none;text-align:right;}
+.hist-card .hist-badge{font-size:10px;padding:2px 7px;border-radius:6px;background:rgba(224,164,92,.18);color:var(--warn,#E0A45C);margin-top:3px;display:inline-block;}
+</style>
+<link rel="manifest" href="/static/manifest.json">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="πNAD Scan">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#D9B158">
+<meta name="format-detection" content="telephone=no">
+<meta name="application-name" content="πNAD Scanner">
+</head>
+<body>
+<div id="pinad-app">
+
+  <!-- Session recovery banner -->
+  <div id="sessionRecoveryBanner" class="session-recovery-banner">
+    <div class="sr-icon">&#x21bb;</div>
+    <div class="sr-title">Sesi&oacute;n recuperada</div>
+    <div class="sr-sub" id="srSub">Tienes una sesi&oacute;n de stitching activa.</div>
+    <!-- Thumbnail strip de fotos guardadas -->
+    <div class="sr-thumbs" id="srThumbs"></div>
+    <div class="sr-actions">
+      <button class="sr-btn sr-btn-primary" onclick="resumeRecoveredSession()">Continuar escaneando</button>
+      <button class="sr-btn sr-btn-ghost" onclick="discardRecoveredSession()">Descartar y empezar de nuevo</button>
+    </div>
+  </div>
+
+  <!-- SPLASH -->
+  <section class="pn-screen active" id="screen-splash">
+    <div class="pn-spacer" style="flex:.6;"></div>
+    <img class="pn-logo" src="{{ url_for('static', filename='logo_pinad.png') }}" alt="πNAD"
+         onerror="this.style.display='none'">
+    <div class="pn-title">Escanea. <b>Listo.</b></div>
+    <div class="pn-sub" id="pn-splash-sub">Toma 5 fotos de tu factura. Tu servidor alinea, mejora y lee los datos automáticamente.</div>
+    <div class="pn-pill-row" id="pn-splash-pills">
+      <span class="pn-pill">5 fotos guiadas</span>
+      <span class="pn-pill">Lectura automática</span>
+      <span class="pn-pill">Procesado en tu servidor</span>
+    </div>
+    <div id="pn-connStatus"><span class="dot"></span><span id="pn-connText">Comprobando conexión con el servidor…</span></div>
+    <div class="pn-spacer"></div>
+    <button class="pn-btn pn-btn-primary pn-btn-lg" onclick="pnGoTo('screen-how')">Comenzar</button>
+    <button class="pn-btn pn-btn-ghost" style="margin-top:12px;" onclick="pnOpenHistory()">Ver historial de facturas</button>
+    <div class="pn-footer">Pi Administración y Asesoría</div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="pn-screen" id="screen-how">
+    <div class="pn-eyebrow">Antes de empezar</div>
+    <h1 class="pn-h1" style="font-size:34px;margin:0 0 22px;">Así de fácil</h1>
+    <div class="pn-how-card"><div class="pn-how-num">1</div><div><h3>Coloca la factura</h3><p>Sobre una mesa plana, con buena luz.</p></div></div>
+    <div class="pn-how-card"><div class="pn-how-num">2</div><div><h3>Sigue los 4 círculos</h3><p>Alinea cada esquina con su círculo guía. Cuando los 4 estén en verde, la foto se toma sola.</p></div></div>
+    <div class="pn-how-card"><div class="pn-how-num">3</div><div><h3>Tu servidor lo procesa</h3><p>Alineación, fusión anti-brillo, recorte, realce y OCR corren en tu propio equipo.</p></div></div>
+
+    <!-- Selector de modo de documento -->
+    <div style="margin:18px 0 10px;text-align:center;">
+      <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;font-weight:600;">Tipo de documento</div>
+      <div style="display:flex;gap:8px;" id="modeSelector">
+        <button class="pn-btn" style="font-size:13px;padding:12px 14px;flex:1;background:linear-gradient(135deg,var(--gold-strong),var(--terracota));color:#241609;border:1.5px solid var(--gold);" onclick="pnSetDocMode('normal')" id="modeBtnNormal">📄 Normal<br><span style="font-size:11px;opacity:.7;font-weight:400;">5 fotos</span></button>
+        <button class="pn-btn pn-btn-ghost" style="font-size:13px;padding:12px 14px;flex:1;" onclick="pnSetDocMode('z')" id="modeBtnZ">📏 Formato Z<br><span style="font-size:11px;opacity:.7;font-weight:400;">8-12 fotos + stitching</span></button>
+        <button class="pn-btn pn-btn-ghost" style="font-size:13px;padding:12px 14px;flex:1;" onclick="pnSetDocMode('z-width')" id="modeBtnZWidth">📐 Z-Width<br><span style="font-size:11px;opacity:.7;font-weight:400;">8-12 fotos + costura horizontal</span></button>
+        <button class="pn-btn pn-btn-ghost" style="font-size:13px;padding:12px 14px;flex:1;" onclick="pnSetDocMode('id')" id="modeBtnID">🆔 ID/Cédula<br><span style="font-size:11px;opacity:.7;font-weight:400;">5 fotos + 300 DPI</span></button>
+      </div>
+      <div id="zOptions" style="display:none;margin-top:12px;">
+        <div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;">
+          <span style="font-size:11px;color:rgba(244,224,171,.6);">N° de fotos:</span>
+          <button class="pn-btn pn-btn-ghost" style="font-size:12px;padding:8px 14px;flex:none;" onclick="pnSetZCount(8)" id="zCount8">8</button>
+          <button class="pn-btn pn-btn-ghost" style="font-size:12px;padding:8px 14px;flex:none;background:var(--gold);color:#241609;border-color:var(--gold);" onclick="pnSetZCount(10)" id="zCount10">10</button>
+          <button class="pn-btn pn-btn-ghost" style="font-size:12px;padding:8px 14px;flex:none;" onclick="pnSetZCount(12)" id="zCount12">12</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pn-spacer"></div>
+    <button class="pn-btn pn-btn-primary pn-btn-lg" onclick="pnStartCapture()">Activar cámara</button>
+    <button class="pn-btn pn-btn-ghost" style="margin-top:12px;" onclick="pnGoTo('screen-splash')">Volver</button>
+  </section>
+
+  <!-- CAPTURE (motor real de cámara/detección — sin modificar) -->
+  <section class="pn-screen" id="screen-capture-wrap">
+    <div class="cam-topbar">
+      <span class="pn-brand">πNAD</span>
+      <span class="pn-badge" id="modeBadge" style="font-size:9px;padding:2px 6px;border-radius:4px;display:none;background:rgba(100,200,255,.2);color:#8cf;border:1px solid rgba(100,200,255,.3);"></span>
+      <div class="gyro-indicator" id="gyroIndicator" title="Giroscopio no detectado. Sin inclinación, solo alineación visual.">
+        <span class="gyro-dot" id="gyroDot"></span>
+        <span class="gyro-label" id="gyroLabel">Giro</span>
+      </div>
+      <button class="cam-close" onclick="pnCancelCapture()">✕</button>
+    </div>
+    <div class="cam" id="camWrap">
+      <video id="v" autoplay playsinline muted></video>
+      <canvas class="cv" id="edgeC"></canvas>
+      <canvas id="tmp"></canvas>
+      <div class="tgt" id="t0"></div><div class="tgt" id="t1"></div><div class="tgt" id="t2"></div><div class="tgt" id="t3"></div>
+      <div class="guide" id="g0"><div class="r" id="r0"><div class="d"></div></div><div class="l">TL</div><div class="d-label" id="dl0"></div></div>
+      <div class="guide" id="g1"><div class="r" id="r1"><div class="d"></div></div><div class="l">TR</div><div class="d-label" id="dl1"></div></div>
+      <div class="guide" id="g2"><div class="r" id="r2"><div class="d"></div></div><div class="l">BL</div><div class="d-label" id="dl2"></div></div>
+      <div class="guide" id="g3"><div class="r" id="r3"><div class="d"></div></div><div class="l">BR</div><div class="d-label" id="dl3"></div></div>
+      <!-- Flecha direccional de inclinación (PhotoScan-style) -->
+      <div id="tiltArrow" class="tilt-arrow">↗</div>
+      <!-- Ghost overlay para modo Z (borde inferior de la toma anterior) -->
+      <canvas id="ghostCanvas" class="z-ghost-canvas"></canvas>
+      <div id="ghostHandle" class="z-ghost-handle">⇅</div>
+      <div id="ghostOffsetLabel" class="z-ghost-offset">Ajuste: <span class="val" id="ghostOffsetVal">0px</span><br><span style="font-size:9px;opacity:.6;">Arrastre para alinear</span></div>
+      <div id="ghostLabel" class="z-ghost-label">Toma anterior ↓</div>
+      <div id="overlapBadge" class="overlap-badge hidden"></div>
+      <div id="overlapMsg"></div>
+      <!-- Flecha vertical para guía de paneo en modo Z -->
+      <div id="zArrow" class="z-arrow">↓</div>
+      <div id="zArrowRight" class="z-arrow-right">→</div>
+      <div id="zArrowLabel" class="z-arrow-label">Deslice hacia abajo</div>
+      <div id="ghostLabelRight" class="z-ghost-label-right">Toma anterior →</div>
+      <div id="zOverlapRing" class="z-overlap-ring"></div>
+      <div id="zOverlapRingRight" class="z-overlap-ring-right"></div>
+      <!-- Indicador de overlap en la barra -->
+      <!-- Indicador de esquina activa (1/4, 2/4...) -->
+      <div id="cornerGuide" class="corner-guide">
+        <span id="cornerLabel"></span>
+        <div id="tiltProgress" class="tilt-bar"><div id="tiltFill" class="tilt-fill"></div></div>
+        <div id="stabProgress" class="tilt-bar" style="margin-top:4px;width:80px;"><div id="stabFill" class="tilt-fill" style="background:linear-gradient(90deg,#0f8,#0ff);"></div></div>
+      </div>
+      <div class="shots" id="shots"></div>
+      <div class="msg" id="msg">Iniciando...</div>
+      <div class="cap"><div id="cp"><svg viewBox="0 0 68 68"><circle cx="34" cy="34" r="30" class="bg"/><circle cx="34" cy="34" r="30" class="fg" id="fg"/></svg></div><button id="cb"></button></div>
+      <div class="st"><span id="sTxt">Esperando</span></div>
+
+      <!-- Upload progress bar for Z mode -->
+      <div class="upload-progress-wrap hidden" id="uploadProgressWrap">
+        <div class="upload-progress-fill" id="uploadProgressFill"></div>
+      </div>
+      <div class="upload-progress-text" id="uploadProgressText">0/0</div>
+
+      <!-- Thumbnails inside cam (se generan dinámicamente en pnStartCapture) -->
+      <div class="strip" id="strip" style="position:absolute;bottom:60px;left:0;right:0;z-index:4"></div>
+
+      <!-- Buttons inside cam -->
+      <div id="bottomBar" style="position:absolute;bottom:0;left:0;right:0;z-index:10"><button class="go" id="goBtn" disabled>Procesar (0/5)</button><button class="rst" id="rstBtn">Reset</button></div>
+
+      <!-- Popup central: se actualiza dinámicamente según N -->
+      <div id="readyPopup" class="ready-popup-backdrop">
+        <div class="ready-popup-card">
+          <div class="ready-popup-check">✓</div>
+          <h2 class="ready-popup-title" id="popupTitle">5 fotos listas</h2>
+          <p class="ready-popup-sub" id="popupSub">Tu servidor ya puede procesar la factura: alinear, mejorar y leer los datos.</p></p>
+      <p class="ready-popup-warn" id="popupOverlapWarn" style="display:none;color:#fc5;font-size:12px;margin:4px 0;text-shadow:0 1px 3px rgba(0,0,0,.6);"></p>
+          <button class="ready-popup-btn-primary" id="popupProcessBtn" onclick="process()">Procesar factura</button>
+          <button class="ready-popup-btn-ghost" id="popupRetakeBtn" onclick="showReviewModal()">Revisar fotos</button>
+          <button class="ready-popup-btn-ghost" id="popupResetBtn" onclick="resetAll()">Tomar todas de nuevo</button>
+        </div>
+      </div>
+
+      <!-- Modal de revisión: dinámico según N -->
+      <div id="reviewModal" class="ready-popup-backdrop">
+        <div class="ready-popup-card" style="max-width:380px;">
+          <h2 class="ready-popup-title" id="reviewTitle" style="margin-bottom:14px;">Tus fotos</h2>
+          <div id="reviewThumbGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;"></div>
+          <button class="ready-popup-btn-primary" onclick="process()">Procesar factura</button>
+          <button class="ready-popup-btn-ghost" onclick="hideReviewModal()">Volver</button>
+          <button class="ready-popup-btn-ghost" onclick="resetAll()">Tomar todas de nuevo</button>
+        </div>
+      </div>
+
+      <!-- Overlap warning modal (side-by-side ghost vs frame) -->
+      <div id="overlapModal" class="ready-popup-backdrop">
+        <div class="ready-popup-card ol-modal-card">
+          <div class="ready-popup-check" style="width:48px;height:48px;font-size:22px;margin-bottom:12px;background:var(--warn,#E0A45C);">!</div>
+          <h2 class="ready-popup-title ol-modal-title">Overlap insuficiente</h2>
+          <p class="ol-modal-sub">El solapamiento entre la &uacute;ltima toma y la anterior es bajo. Esto puede causar espacios sin coser en la imagen final.</p>
+          <div class="ol-split">
+            <div class="ol-split-pane">
+              <span class="badge ol-badge-ghost">⬡ Toma anterior</span>
+              <canvas id="olGhostCanvas" width="120" height="160"></canvas>
+            </div>
+            <div class="ol-split-pane">
+              <span class="badge ol-badge-frame">◉ Frame actual</span>
+              <canvas id="olFrameCanvas" width="120" height="160"></canvas>
+            </div>
+          </div>
+          <div class="ol-score-row">
+            <span class="ol-score-pct" id="olScorePct">0%</span>
+            <div class="ol-score-bar"><div class="ol-score-fill" id="olScoreFill" style="width:0%"></div></div>
+          </div>
+          <div class="ol-btn-group">
+            <button class="ol-btn-retake" onclick="hideOverlapModal();retakeLastShot();">Rehacer &uacute;ltima toma</button>
+            <button class="ol-btn-force" onclick="hideOverlapModal();proceedWithProcess();">Procesar de todas formas</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROCESSING -->
+  <section class="pn-screen" id="screen-processing">
+    <div class="pn-spacer"></div>
+    <div style="text-align:center;">
+      <div class="pn-orb"></div>
+      <h2 class="pn-h1" style="font-size:26px;margin:0 0 6px;">Procesando tu factura</h2>
+      <div class="pn-lede pn-proc-sub" id="pn-procSub">Enviando fotos a tu servidor…</div><div style="width:100%;max-width:300px;margin:12px auto;background:rgba(255,255,255,0.1);border-radius:6px;overflow:hidden;height:8px;"><div id="pn-procBar" style="width:0%;height:100%;background:linear-gradient(90deg,var(--gold),#ffd700);border-radius:6px;transition:width 0.5s ease;"></div></div>
+    </div>
+    <div id="pn-retryWrap">
+      <div class="pn-lede" id="pn-errText"></div>
+      <button class="pn-btn pn-btn-primary" onclick="pnRetry()">Reintentar</button>
+      <button class="pn-btn pn-btn-ghost" style="margin-top:10px;" onclick="pnResetFlow()">Volver a tomar fotos</button>
+    </div>
+    <div class="pn-spacer"></div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="pn-screen" id="screen-result">
+    <div class="pn-eyebrow">Listo</div>
+    <h1 class="pn-h1" style="font-size:30px;margin:0 0 16px;">Revisa los datos</h1>
+    <div class="pn-preview"><img id="pn-previewImg" alt="Factura procesada"></div>
+    <div class="pn-conf-banner" id="pn-confBanner"><span>✓</span><span id="pn-confText"></span></div>
+    <div id="pn-validationWarns"></div>
+    <div class="pn-section-label">Datos de la factura</div>
+    <div id="pn-fieldsContainer"></div>
+    <div class="pn-raw-toggle" onclick="pnToggleRaw()">Ver texto completo detectado</div>
+    <div id="pn-rawText"></div>
+    <div class="pn-cta-stack">
+      <button class="pn-btn pn-btn-primary pn-btn-lg" onclick="pnConfirmInvoice()">Confirmar y guardar</button>
+      <button class="pn-btn pn-btn-ghost" onclick="pnResetFlow()">Escanear otra factura</button>
+    </div>
+    <div class="pn-footer">Pi Administración y Asesoría</div>
+  </section>
+
+  <!-- SAVED -->
+  <!-- HISTORIAL — Libro de Compras/Ventas -->
+  <section class="pn-screen" id="screen-history">
+    <div class="pn-eyebrow">Historial</div>
+    <h1 class="pn-h1" style="font-size:30px;margin:0 0 4px;">Tus facturas</h1>
+    <div class="pn-lede" style="margin-bottom:16px;" id="historySummary">Cargando…</div>
+
+    <input type="text" id="historySearch" placeholder="Buscar por razón social, RIF o N° de factura…"
+           style="width:100%;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;color:#fff;font-family:'Poppins';font-size:14px;margin-bottom:14px;outline:none;">
+
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <button class="pn-btn pn-btn-ghost" style="font-size:13px;padding:12px;" onclick="pnExportInvoices('xlsx')">⬇ Excel</button>
+      <button class="pn-btn pn-btn-ghost" style="font-size:13px;padding:12px;" onclick="pnExportInvoices('csv')">⬇ CSV</button>
+    </div>
+
+    <div id="historyList"></div>
+    <div class="pn-lede" id="historyEmpty" style="display:none;text-align:center;margin-top:30px;">
+      Aún no has escaneado ninguna factura.
+    </div>
+
+    <div class="pn-spacer"></div>
+    <button class="pn-btn pn-btn-ghost" onclick="pnGoTo('screen-splash')">Volver</button>
+  </section>
+
+  <section class="pn-screen" id="screen-saved">
+    <div class="pn-spacer"></div>
+    <div style="text-align:center;">
+      <div style="width:110px;height:110px;border-radius:50%;margin:0 auto 26px;background:linear-gradient(135deg,var(--gold-strong),var(--terracota));display:flex;align-items:center;justify-content:center;font-size:52px;color:#241609;">✓</div>
+      <h1 class="pn-h1" style="font-size:32px;margin:0 0 10px;">¡Factura guardada!</h1>
+      <div class="pn-lede" style="max-width:280px;margin:0 auto;" id="pn-savedSub">Ya quedó registrada. Tu negocio, al día.</div>
+    </div>
+    <div class="pn-spacer"></div>
+    <button class="pn-btn pn-btn-primary pn-btn-lg" onclick="pnResetFlow()">Escanear otra factura</button>
+  </section>
+
+</div>
+<div id="pn-toast"></div>
+
+<script src="https://docs.opencv.org/4.9.0/opencv.js" onload="cvReady()" type="text/javascript"></script>
+<script>
+let cvOk=false;
+function cvReady(){cvOk=true;console.log('OpenCV.js ready')}
+
+// Modo de documento: 'normal' (5 fotos) o 'z' (8-12+ fotos con stitching)
+let N=5, docMode='normal', docModeLabel='Normal', maxShots=5;
+// Estado para pipeline asincrono (Modo Z shot-by-shot)
+let asyncSessionId = null;
+let uploadedShots = new Set();
+let shotsUploading = false;
+
+// ═══ Session persistence via localStorage ═══
+const STORAGE_KEY = 'nad_stitch_session';
+
+function saveSessionState() {
+  if (!asyncSessionId) {
+    clearSessionState();
+    return;
+  }
+  try {
+    const data = {
+      sessionId: asyncSessionId,
+      step: step,
+      totalShots: N,
+      docMode: docMode,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) { /* quota exceeded, ignore */ }
+}
+
+function clearSessionState() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  try { localStorage.removeItem(NORMAL_STORAGE_KEY); } catch(e) {}
+}
+
+// ═══ Normal mode session persistence (5 shots, no stitching) ═══
+const NORMAL_STORAGE_KEY = 'nad_normal_session';
+
+function saveNormalSession() {
+  try {
+    // Save shot data URLs (jpeg, ~3-5KB each) for up to 5 shots
+    var shotUrls = [];
+    for (var i = 0; i < shots.length && i < N; i++) {
+      shotUrls.push(shots[i].url);
+    }
+    if (shotUrls.length === 0) {
+      clearNormalSession();
+      return;
+    }
+    // Incluir thumbnails (40px, ~200 bytes c/u) ademas de las URLs completas
+    var thumbUrls = [];
+    for (var ti = 0; ti < shots.length && ti < N; ti++) {
+      thumbUrls.push(shots[ti].thumbUrl || shots[ti].url);
+    }
+    var data = {
+      urls: shotUrls,
+      thumbs: thumbUrls,
+      step: step,
+      totalShots: N,
+      docMode: docMode,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(NORMAL_STORAGE_KEY, JSON.stringify(data));
+  } catch(e) {
+    // Data URLs might exceed quota; silently fail
+  }
+}
+
+function clearNormalSession() {
+  try { localStorage.removeItem(NORMAL_STORAGE_KEY); } catch(e) {}
+}
+
+function getNormalSavedSession() {
+  try {
+    var raw = localStorage.getItem(NORMAL_STORAGE_KEY);
+    if (!raw) return null;
+    var data = JSON.parse(raw);
+    // Expirar despues de 2 horas
+    if (Date.now() - data.timestamp > 2 * 3600 * 1000) {
+      clearNormalSession();
+      return null;
+    }
+    // Solo para modo normal, con al menos 1 shot
+    if (data.docMode !== 'normal' || !data.urls || data.urls.length === 0) {
+      clearNormalSession();
+      return null;
+    }
+    return data;
+  } catch(e) {
+    clearNormalSession();
+    return null;
+  }
+}
+
+// Renderiza thumbnails en el strip del banner de recuperacion
+function renderRecoveryThumbs(thumbUrls, total, maxShots) {
+  var container = document.getElementById('srThumbs');
+  if (!container) return;
+  container.innerHTML = '';
+  var count = Math.min(thumbUrls ? thumbUrls.length : 0, maxShots || 5);
+  for (var ti = 0; ti < (maxShots || 5); ti++) {
+    var div = document.createElement('div');
+    div.className = 'sr-thumb';
+    if (ti < count && thumbUrls[ti]) {
+      div.innerHTML = '<img src="' + thumbUrls[ti] + '" alt="" loading="lazy">';
+      div.classList.add('done');
+    } else {
+      div.innerHTML = '<span>' + (ti + 1) + '</span>';
+      div.classList.add('empty');
+    }
+    container.appendChild(div);
+  }
+}
+
+function restoreNormalSession(data) {
+  // Restaura shots desde data URLs guardadas
+  if (!data || !data.urls || data.urls.length === 0) return false;
+
+  // Limpiar shots actuales
+  shots = [];
+  var total = data.urls.length;
+
+  function onAllLoaded() {
+    step = data.step || total;
+    N = data.totalShots || 5;
+    docMode = 'normal';
+
+    // Actualizar UI
+    dShots();
+    dThumbs();
+    updateBtn();
+
+    // Renderizar thumbnails en el banner de recuperacion
+    renderRecoveryThumbs(data.thumbs || data.urls, total, N);
+
+    if (step >= N) {
+      // Todas las fotos recuperadas → ir directo al popup de Procesar
+      var msg = document.getElementById('msg');
+      if (msg) msg.innerHTML = '<b style="color:#0f8">\u2713 ' + N + ' fotos</b>';
+      // Navegar a la pantalla de cámara y mostrar popup
+      pnGoTo('screen-capture-wrap');
+      setTimeout(function() { showReadyPopup(); }, 100);
+    } else {
+      // Fotos pendientes → mostrar banner de recuperacion
+      var banner = document.getElementById('sessionRecoveryBanner');
+      if (banner) {
+        var sub = document.getElementById('srSub');
+        if (sub) sub.textContent = total + '/' + N + ' fotos recuperadas. Desea continuar?';
+        banner.classList.add('show');
+      }
+    }
+  }
+
+  var loaded = 0;
+  for (var i = 0; i < total; i++) {
+    var c = document.createElement('canvas');
+    c.width = v ? (v.videoWidth || 1280) : 1280;
+    c.height = v ? (v.videoHeight || 720) : 720;
+
+    var img = new Image();
+    img.onload = (function(canvas, url) {
+      return function() {
+        canvas.getContext('2d').drawImage(this, 0, 0);
+        shots.push({ url: url, cv: canvas });
+        loaded++;
+        if (loaded === total) onAllLoaded();
+      };
+    })(c, data.urls[i]);
+    img.onerror = function() {
+      loaded++;
+      if (loaded === total) onAllLoaded();
+    };
+    img.src = data.urls[i];
+  }
+
+  return true;
+}
+
+function getSavedSession() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    // Expirar sesiones guardadas hace mas de 2 horas
+    if (Date.now() - data.timestamp > 2 * 3600 * 1000) {
+      clearSessionState();
+      return null;
+    }
+    return data;
+  } catch(e) {
+    clearSessionState();
+    return null;
+  }
+}
+
+function restoreSessionFromStatus(statusData) {
+  // Restaura la UI con los datos de la sesion recuperada
+  var saved = getSavedSession();
+  if (!saved) return;
+  
+  var recv = statusData.received_shots || 0;
+  var total = statusData.total_shots || saved.totalShots;
+  
+  // Actualizar estado global
+  asyncSessionId = saved.sessionId;
+  N = total;
+  docMode = saved.docMode;
+  
+  // Sincronizar uploadedShots con el servidor (persiste entre recargas)
+  uploadedShots.clear();
+  for (var j = 0; j < recv; j++) uploadedShots.add(j);
+  
+  // Si ya se completaron todas las fotos, mostrar popup de procesar
+  if (recv >= total) {
+    step = total;
+    maxShots = total;
+    // Actualizar UI
+    updateBtn();
+    dShots();
+    dThumbs();
+    initUploadProgress();
+    var msg = document.getElementById('msg');
+    if (msg) msg.innerHTML = '<b style="color:#0f8">\u2713 ' + total + ' fotos</b>';
+    showReadyPopup();
+    if (statusData.canvas) {
+      document.getElementById('pn-procSub').textContent =
+        'Sesion recuperada - ' + recv + '/' + total + ' fotos, canvas ' +
+        statusData.canvas.width + 'x' + statusData.canvas.height;
+    } else {
+      document.getElementById('pn-procSub').textContent =
+        'Sesion recuperada - ' + recv + '/' + total + ' fotos listas';
+    }
+  } else {
+    // Fotos pendientes: ir a pantalla de captura
+    step = recv;
+    maxShots = total;
+    updateBtn();
+    dShots();
+    dThumbs();
+    initUploadProgress();
+    var msg = document.getElementById('msg');
+    if (msg) msg.innerHTML = '<b style="color:#fc5">Recuperada</b> ' + recv + '/' + total;
+  }
+}
+
+function recoverSession() {
+  var saved = getSavedSession();
+  if (!saved) return Promise.resolve(false);
+  
+  if (saved.docMode !== 'z' && saved.docMode !== 'z-width') {
+    // Normal mode: restore from local data URLs instead of server session
+    clearSessionState();
+    var normalData = getNormalSavedSession();
+    if (normalData) {
+      restoreNormalSession(normalData);
+      return Promise.resolve(true);
+    }
+    return Promise.resolve(false);
+  }
+  
+  // Poll the server to check if session is still valid
+  return fetch('/process-shot/' + saved.sessionId + '/status')
+    .then(function(r) { if (!r.ok) throw new Error('Session not found'); return r.json(); })
+    .then(function(data) {
+      if (data && data.status && data.status !== 'failed') {
+        restoreSessionFromStatus(data);
+        // Solo mostrar banner si faltan fotos (restoreSessionFromStatus ya mostró popup si estaban todas)
+        var recv = data.received_shots || 0;
+        var totalS = data.total_shots || 0;
+        if (recv < totalS) {
+          var banner = document.getElementById('sessionRecoveryBanner');
+          if (banner) {
+            var sub = document.getElementById('srSub');
+            if (sub) sub.textContent = recv + '/' + totalS + ' fotos listas. Desea continuar?';
+            banner.classList.add('show');
+          }
+        }
+        return true;
+      }
+      clearSessionState();
+      return false;
+    })
+    .catch(function() {
+      // Server not reachable or session expired
+      clearSessionState();
+      return false;
+    });
+}
+
+// ═══ End session persistence ═══
+
+// ═══ Adaptive compression ═══
+var _adapRtt = null;
+var _adapQuality = 0.85;
+var _adapMeasured = false;
+
+function measureRTT() {
+  return new Promise(function(resolve) {
+    var start = performance.now();
+    fetch('/health')
+      .then(function(r) { return r.json(); })
+      .then(function() {
+        var elapsed = performance.now() - start;
+        _adapRtt = elapsed;
+        if (elapsed < 50) _adapQuality = 0.92;
+        else if (elapsed < 100) _adapQuality = 0.85;
+        else if (elapsed < 200) _adapQuality = 0.75;
+        else if (elapsed < 500) _adapQuality = 0.60;
+        else _adapQuality = 0.50;
+        _adapMeasured = true;
+        console.log('[Adap] RTT=' + Math.round(elapsed) + 'ms, q=' + _adapQuality.toFixed(2));
+        resolve(_adapQuality);
+      })
+      .catch(function() {
+        _adapMeasured = true;
+        _adapQuality = 0.70;
+        resolve(0.70);
+      });
+  });
+}
+
+function getAdaptiveQuality() {
+  if (!_adapMeasured) return 0.85;
+  return _adapQuality;
+}
+// ═══ End adaptive compression ═══
+
+// ═══ Upload progress bar (Z mode) ═══
+function initUploadProgress() {
+  var wrap = document.getElementById('uploadProgressWrap');
+  var txt = document.getElementById('uploadProgressText');
+  if (!wrap) return;
+  if (docMode === 'z' && N > 5) {
+    wrap.classList.remove('hidden');
+    if (txt) txt.classList.add('show');
+    updateUploadProgress();
+  } else {
+    wrap.classList.add('hidden');
+    if (txt) txt.classList.remove('show');
+  }
+}
+
+function updateUploadProgress() {
+  var fill = document.getElementById('uploadProgressFill');
+  var txt = document.getElementById('uploadProgressText');
+  if (!fill || (docMode !== 'z' && docMode !== 'z-width')) return;
+  
+  var total = N;
+  var done = uploadedShots.size;
+  var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  
+  // Gradient: green if all ok, yellow if partial, red-gradient if many fails
+  fill.style.width = pct + '%';
+  // Gradient refleja calidad de subida: rojo si hay fallos, verde si todo ok
+  var failed = updateUploadProgress._lastFailed;
+  if (failed === undefined) failed = 0;
+  if (failed > 0) {
+    var failRatio = Math.min(failed / total, 0.8);
+    fill.style.background = 'linear-gradient(90deg, #f44 0%, #f44 ' + (failRatio * 100) + '%, #fc5 ' + ((failRatio + 0.2) * 100) + '%, #0f8 100%)';
+  } else {
+    fill.style.background = 'linear-gradient(90deg, #f44 0%, #fc5 50%, #0f8 100%)';
+  }
+  
+  if (txt) {
+    var failed = 0;
+    for (var i = 0; i < total; i++) {
+      var th = document.querySelector('.th[data-index="' + i + '"]');
+      if (th && th.classList.contains('fail')) failed++;
+    }
+    updateUploadProgress._lastFailed = failed;
+    var label = done + '/' + total + ' subidas';
+    if (failed > 0) label += ' (' + failed + ' fallos)';
+    txt.textContent = label;
+  }
+}
+
+function setThumbnailStatus(idx, status) {
+  // status: 'uploading' | 'ok' | 'fail' | 'warn'
+  var th = document.querySelector('.th[data-index="' + idx + '"]');
+  if (!th) return;
+  
+  // Remove existing badges
+  var oldBadge = th.querySelector('.th-badge');
+  if (oldBadge) oldBadge.remove();
+  
+  th.classList.remove('uploading', 'ok', 'fail');
+  
+  if (status === 'uploading') {
+    th.classList.add('uploading');
+    var badge = document.createElement('div');
+    badge.className = 'th-badge uploading show';
+    th.appendChild(badge);
+  } else if (status === 'ok') {
+    th.classList.add('ok');
+    var badge = document.createElement('div');
+    badge.className = 'th-badge ok show';
+    badge.textContent = '\u2713';
+    th.appendChild(badge);
+  } else if (status === 'fail') {
+    th.classList.add('fail');
+    var badge = document.createElement('div');
+    badge.className = 'th-badge fail show';
+    badge.textContent = '\u2717';
+    th.appendChild(badge);
+  } else if (status === 'warn') {
+    var badge = document.createElement('div');
+    badge.className = 'th-badge warn show';
+    badge.textContent = '!';
+    th.appendChild(badge);
+  }
+  
+  updateUploadProgress();
+}
+
+// Wire setThumbnailStatus into the existing upload handlers
+// This is called from the upload success/fail code below
+// ═══ End upload progress ═══
+
+const Z_MIN=8, Z_MAX=12;
+const TGT=[{x:.22,y:.22},{x:.78,y:.22},{x:.22,y:.78},{x:.78,y:.78}];
+let shots=[],step=0,stream=null,busy=false,camOn=false,run=false,mc=0,prevC=null;
+let lastCapture=0;// cooldown between captures
+let stableCount=0;// cuadros CONSECUTIVOS con los 4 corners alineados — evita disparo por un solo frame casual
+const STABLE_FRAMES_NEEDED=7;// ~230-280ms a 25-30fps
+
+/* =========================================================================
+   Captura multi-ángulo real (estilo PhotoScan) vía giroscopio del teléfono
+   ========================================================================
+   PhotoScan real no toma 5 fotos desde la MISMA posición: la 1ª es de
+   frente (centro) y las otras 4 se toman inclinando físicamente el
+   teléfono hacia cada esquina — ese cambio de ángulo genera paralaje,
+   que es lo que permite que un reflejo/brillo que aparece en una toma NO
+   aparezca en las otras, y la fusión por mediana (core/fusion.py) lo
+   elimine. Sin inclinación real, las 5 fotos son casi idénticas y ese
+   truco anti-brillo no funciona — antes esta app no lo hacía.
+
+   Con DeviceOrientationEvent disponible y permitido: la 1ª foto (centro)
+   fija los ángulos beta/gamma de referencia; las 4 siguientes exigen
+   inclinar el teléfono ~14° hacia cada esquina (con tolerancia) antes de
+   disparar. Sin soporte/permiso (desktop, algunos Android, denegado):
+   se degrada con gracia al comportamiento anterior — solo alineación
+   visual, sin exigir inclinación.
+*/
+let devOrientOn=false, refBeta=null, refGamma=null, curBeta=0, curGamma=0;
+// Ghost overlay state (para modo Z)
+let ghostCanvas=null, ghostCtx=null, ghostOverlayActive=false;
+let ghostCaptureSeq=0; // counter to prevent timeout races on retakes
+// Interactive ghost: drag Y offset + pinch zoom
+let ghostOffsetY=0, ghostScale=1.0, ghostIsDragging=false, ghostIsPinching=false;
+let ghostLastTouchY=0, ghostPinchDist=0, ghostSnapThreshold=5; // px para snap a 0 (~18px en un teléfono normal)
+const GHOST_MAX_OFFSET=80; // maximo desplazamiento en px (viewport units)
+const GHOST_MIN_SCALE=0.5, GHOST_MAX_SCALE=2.0;
+
+function initInteractiveGhost(){
+  if(!ghostCanvas) return;
+  // Touch handlers for drag + pinch
+  ghostCanvas.addEventListener('touchstart', onGhostTouchStart, {passive:false});
+  ghostCanvas.addEventListener('touchmove', onGhostTouchMove, {passive:false});
+  ghostCanvas.addEventListener('touchend', onGhostTouchEnd, {passive:false});
+  ghostCanvas.addEventListener('touchcancel', onGhostTouchEnd, {passive:false});
+  // Mouse fallback for desktop testing
+  ghostCanvas.addEventListener('mousedown', onGhostMouseDown);
+  document.addEventListener('mousemove', onGhostMouseMove);
+  document.addEventListener('mouseup', onGhostMouseUp);
+  // Handle element
+  const h=document.getElementById('ghostHandle');
+  if(h){
+  h.addEventListener('touchstart', (e)=>{
+    e.stopPropagation();
+    const touch = e.touches?.[0] || {clientY: e.clientY};
+    onGhostTouchStart({preventDefault(){}, touches:[touch]});
+  }, {passive:true});
+}
+}
+function onGhostTouchStart(e){
+  if((docMode!=='z'&&docMode!=='z-width') || !ghostOverlayActive) return;
+  e.preventDefault();
+  const touches=e.touches;
+  if(touches.length>=2){
+    // Pinch-to-zoom
+    ghostIsPinching=true;
+    ghostIsDragging=false;
+    ghostPinchDist=Math.hypot(touches[0].clientX-touches[1].clientX, touches[0].clientY-touches[1].clientY);
+    ghostCanvas.classList.add('zoomed');
+    return;
+  }
+  // Single finger drag
+  ghostIsDragging=true;
+  ghostIsPinching=false;
+  ghostLastTouchY=touches[0].clientY;
+  ghostCanvas.classList.add('interactive');
+  document.getElementById('ghostHandle')?.classList.add('show');
+  document.getElementById('ghostOffsetLabel')?.classList.add('show');
+}
+function onGhostTouchMove(e){
+  e.preventDefault();
+  if(ghostIsPinching && e.touches.length>=2){
+    const newDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    const delta=newDist/ghostPinchDist;
+    ghostScale=Math.max(GHOST_MIN_SCALE, Math.min(GHOST_MAX_SCALE, ghostScale*delta));
+    ghostPinchDist=newDist;
+    redrawGhostWithAdjustments();
+    updateGhostOffsetDisplay();
+    return;
+  }
+  if(ghostIsDragging && e.touches.length===1){
+    const dy=e.touches[0].clientY - ghostLastTouchY;
+    const cw=ghostCanvas?.width||1;
+    // Convertir dy a porcentaje del canvas height para escalar offset
+    const offsetDelta=dy/cw;
+    ghostOffsetY+=offsetDelta;
+    ghostOffsetY=Math.max(-GHOST_MAX_OFFSET/100, Math.min(GHOST_MAX_OFFSET/100, ghostOffsetY));
+    ghostLastTouchY=e.touches[0].clientY;
+    redrawGhostWithAdjustments();
+    updateGhostOffsetDisplay();
+  }
+}
+function onGhostTouchEnd(e){
+  ghostIsDragging=false;
+  ghostIsPinching=false;
+  ghostCanvas.classList.remove('zoomed');
+  // Snap to 0 si está cerca
+  if(Math.abs(ghostOffsetY)*100 < ghostSnapThreshold){
+    ghostOffsetY=0;
+    redrawGhostWithAdjustments();
+    updateGhostOffsetDisplay();
+  }
+  // Si no hay offset ni zoom, ocultar el handle
+  if(ghostOffsetY===0 && Math.abs(ghostScale-1)<0.01){
+    ghostCanvas.classList.remove('interactive');
+    document.getElementById('ghostHandle')?.classList.remove('show');
+    document.getElementById('ghostOffsetLabel')?.classList.remove('show');
+  }
+}
+function onGhostMouseDown(e){
+  if((docMode!=='z'&&docMode!=='z-width') || !ghostOverlayActive) return;
+  ghostIsDragging=true;
+  ghostLastTouchY=e.clientY;
+  ghostCanvas.classList.add('interactive');
+  document.getElementById('ghostHandle')?.classList.add('show');
+  document.getElementById('ghostOffsetLabel')?.classList.add('show');
+}
+function onGhostMouseMove(e){
+  if(!ghostIsDragging) return;
+  const dy=e.clientY-ghostLastTouchY;
+  const cw=ghostCanvas?.width||1;
+  const offsetDelta=dy/cw;
+  ghostOffsetY+=offsetDelta;
+  ghostOffsetY=Math.max(-GHOST_MAX_OFFSET/100, Math.min(GHOST_MAX_OFFSET/100, ghostOffsetY));
+  ghostLastTouchY=e.clientY;
+  redrawGhostWithAdjustments();
+  updateGhostOffsetDisplay();
+}
+function onGhostMouseUp(e){
+  if(!ghostIsDragging) return;
+  ghostIsDragging=false;
+  if(Math.abs(ghostOffsetY)*100 < ghostSnapThreshold){
+    ghostOffsetY=0;
+    redrawGhostWithAdjustments();
+    updateGhostOffsetDisplay();
+  }
+  if(ghostOffsetY===0 && Math.abs(ghostScale-1)<0.01){
+    ghostCanvas.classList.remove('interactive');
+    document.getElementById('ghostHandle')?.classList.remove('show');
+    document.getElementById('ghostOffsetLabel')?.classList.remove('show');
+  }
+}
+function redrawGhostWithAdjustments(){
+  if(!ghostCtx||!ghostCanvas) return;
+  const cw=ghostCanvas.width, ch=ghostCanvas.height;
+  ghostCtx.clearRect(0,0,cw,ch);
+  // Si no hay último shot, salir
+  if(!window.__lastGhostSource) return;
+  ghostCtx.save();
+  ghostCtx.globalAlpha=0.32;
+  const src=window.__lastGhostSource;
+  // Aplicar offset Y (fracción del canvas) y escala
+  const srcY=src.sh*(1-src.overlap)-ghostOffsetY*cw/ghostScale;
+  const srcH=src.sh*src.overlap/ghostScale;
+  const destY=ghostOffsetY*cw>0?0:-ghostOffsetY*cw;
+  const destH=ch-Math.abs(ghostOffsetY*cw);
+  ghostCtx.drawImage(src.el, 0, Math.max(0,srcY), src.sw, Math.min(src.sh-srcY, srcH), 0, Math.max(0,destY), cw, Math.min(ch, destH));
+  ghostCtx.restore();
+  // Mostrar ghost si está oculto
+  if(!ghostOverlayActive){
+    ghostOverlayActive=true;
+    ghostCanvas.classList.add('show');
+  }
+}
+function updateGhostOffsetDisplay(){
+  const v=document.getElementById('ghostOffsetVal');
+  const l=document.getElementById('ghostOffsetLabel');
+  if(v){
+    const offsetPx=Math.round(ghostOffsetY*(ghostCanvas?.width||1));
+    v.textContent=ghostScale!==1.0 ? '×'+ghostScale.toFixed(1) : offsetPx>0?'+'+offsetPx+'px':offsetPx+'px';
+  }
+  if(l){
+    // FIX: 'algo?.prop = valor' es un SyntaxError en JS — la asignación
+    // opcional-encadenada como destino no es válida (el motor la rechaza
+    // al analizar el archivo, no en tiempo de ejecución). Esto rompía
+    // TODO el bloque <script> de la página: ni la cámara, ni el envío al
+    // servidor, ni nada del resto del archivo llegaba a ejecutarse jamás.
+    const span=l.querySelector('span');
+    if(span){
+      if(ghostScale!==1.0 && ghostOffsetY===0) span.textContent='Pellizque para ajustar zoom';
+      else if(ghostOffsetY!==0) span.textContent='Arrastre para alinear';
+      else span.textContent='Arrastre ghost o pellizque zoom';
+    }
+  }
+}
+function resetGhostAdjustments(){
+  ghostOffsetY=0; ghostScale=1.0; ghostIsDragging=false; ghostIsPinching=false;
+  ghostCanvas?.classList.remove('interactive','zoomed');
+  document.getElementById('ghostHandle')?.classList.remove('show');
+  document.getElementById('ghostOffsetLabel')?.classList.remove('show');
+  window.__lastGhostSource=null;
+}
+const Z_OVERLAP_PCT=0.30; // 30% overlap para ghost
+var Z_OVERLAP_DIR='vertical'; // 'vertical' (Z) o 'horizontal' (Z-width)
+
+// ═══ Overlap check integrado en loop() (reemplaza setInterval) ═══
+var _olFrameCount = 0;
+var _prevGhostGray = null;
+var _prevGhostW = 0;
+var _prevGhostH = 0;
+
+function initGhostOverlay(){
+  ghostCanvas=document.getElementById('ghostCanvas');
+  if(ghostCanvas){
+    ghostCtx=ghostCanvas.getContext('2d');
+    initInteractiveGhost();
+  }
+}
+function captureGhost(canvasEl){
+  // Extrae el ~30% inferior de la imagen capturada como ghost overlay interactivo
+  // Guarda referencia al canvas original para ajustes de drag/zoom
+  if(!ghostCtx||!ghostCanvas||(docMode!=='z'&&docMode!=='z-width')) return;
+  const sw=canvasEl.width, sh=canvasEl.height;
+  const dw=ghostCanvas.width, dh=ghostCanvas.height;
+  if(sw===0||sh===0||dw===0||dh===0) return;
+  // Resetear ajustes anteriores
+  ghostOffsetY=0; ghostScale=1.0;
+  // Guardar fuente para ajustes interactivos
+  window.__lastGhostSource={el:canvasEl, sw:sw, sh:sh, overlap:Z_OVERLAP_PCT, dir:Z_OVERLAP_DIR};
+  // Dibujar ghost base — según dirección
+  ghostCtx.clearRect(0,0,dw,dh);
+  ghostCtx.globalAlpha=0.32;
+  if(Z_OVERLAP_DIR==='horizontal'){
+    // Extraer 30% DERECHO de la imagen
+    ghostCtx.drawImage(canvasEl, sw*(1-Z_OVERLAP_PCT), 0, sw*Z_OVERLAP_PCT, sh, 0, 0, dw, dh);
+  }else{
+    // Vertical: extraer 30% INFERIOR (comportamiento original)
+    ghostCtx.drawImage(canvasEl, 0, sh*(1-Z_OVERLAP_PCT), sw, sh*Z_OVERLAP_PCT, 0, 0, dw, dh);
+  }
+  ghostCtx.globalAlpha=1.0;
+  showGhostOverlay();
+  // Activar interacción después de un breve delay
+  const thisSeq = ++ghostCaptureSeq;
+  setTimeout(()=>{
+    if(ghostCaptureSeq !== thisSeq) return; // retake occurred, discard
+    if(ghostCanvas && ghostOverlayActive){
+      ghostCanvas.classList.add('interactive');
+      document.getElementById('ghostHandle')?.classList.add('show');
+      document.getElementById('ghostOffsetLabel')?.classList.add('show');
+    }
+  }, 800);
+}
+function showGhostOverlay(){
+  const cv=document.getElementById('ghostCanvas');
+  const lb=document.getElementById('ghostLabel');
+  if(cv) cv.classList.add('show');
+  if(lb) lb.classList.add('show');
+  ghostOverlayActive=true;
+  // Mostrar indicador de overlap (ring)
+  const ring=document.getElementById('zOverlapRing');
+  if(ring){
+    const ch=document.getElementById('camWrap').offsetHeight;
+    if(Z_OVERLAP_DIR==='horizontal'){
+      const r2=document.getElementById('zOverlapRingRight');
+      if(r2){
+        r2.style.right='0';
+        r2.style.width=(ch*Z_OVERLAP_PCT)+'px';
+        r2.classList.add('show');
+      }
+    }else{
+      ring.style.top=(ch*(1-Z_OVERLAP_PCT))+'px';
+      ring.style.bottom='0';
+      ring.classList.add('show');
+    }
+  }
+}
+function hideGhostOverlay(){
+  const cv=document.getElementById('ghostCanvas');
+  const lb=document.getElementById('ghostLabel');
+  const lb2=document.getElementById('ghostLabelRight');
+  const ring=document.getElementById('zOverlapRing');
+  const ring2=document.getElementById('zOverlapRingRight');
+  if(cv) cv.classList.remove('show','interactive','zoomed');
+  if(lb) lb.classList.remove('show');
+  if(lb2) lb2.classList.remove('show');
+  if(ring) ring.classList.remove('show');
+  if(ring2) ring2.classList.remove('show');
+  ghostOverlayActive=false;
+  resetGhostAdjustments();
+}function showZArrow(){
+  const isH=Z_OVERLAP_DIR==='horizontal';
+  const a=document.getElementById(isH?'zArrowRight':'zArrow');
+  const al=document.getElementById('zArrowLabel');
+  const rl=document.getElementById('ghostLabelRight');
+  if(a) a.classList.add('show');
+  if(al) al.classList.add('show');
+  if(isH&&rl) rl.classList.add('show');
+}
+
+function hideZArrow(){
+  const isH=Z_OVERLAP_DIR==='horizontal';
+  const a=document.getElementById(isH?'zArrowRight':'zArrow');
+  const al=document.getElementById('zArrowLabel');
+  const rl=document.getElementById('ghostLabelRight');
+  if(a) a.classList.remove('show');
+  if(al) al.classList.remove('show');
+  if(rl) rl.classList.remove('show');
+}
+function updateZGuidance(step, nTotal){
+  // Actualiza texto de guía según el progreso
+  const al=document.getElementById('zArrowLabel');
+  if(!al) return;
+  if(Z_OVERLAP_DIR==='horizontal'){
+    if(step===0) al.textContent='Tome la parte IZQUIERDA del documento';
+    else if(step<nTotal-1) al.textContent='Deslice hacia la derecha para solapar ~30%';
+    else al.textContent='ÚLTIMA — parte DERECHA del documento';
+  }else{
+    if(step===0) al.textContent='Tome la PARTE SUPERIOR del documento';
+    else if(step<nTotal-1) al.textContent='Deslice hacia abajo para solapar ~30%';
+    else al.textContent='ÚLTIMA — PARTE INFERIOR del documento';
+  }
+}
+
+// ═══ Overlap detector: analiza si el ghost coincide con el frame actual ═══
+// Usa correlación cruzada simple (mean absolute difference) en downsampled
+// imágenes para estimar si el usuario mantiene suficiente overlap.
+// Score: 0=pésimo, 1=perfecto. <0.15 = insuficiente, requiere advertencia.
+let overlapScore=0, overlapCheckInterval=null, overlapWarningActive=false;
+
+function checkOverlapQuality(){
+  // Compara el ghost overlay (bottom 30% del shot anterior) con la parte
+  // superior del frame actual. Si la correlación es baja, el usuario
+  // necesita más overlap.
+  if(docMode!=='z'||!v||!v.videoWidth||shots.length===0) return 0;
+  
+  // Crear un canvas temporal downsampled (64px de ancho)
+  const W=64;
+  const sw=v.videoWidth, sh=v.videoHeight;
+  const aspect=sh/sw;
+  const H=Math.floor(W*aspect);
+  if(sw<10||H<10) return 0;
+  
+  // Muestrear el frame actual: solo la parte SUPERIOR (donde debería
+  // estar el overlap con el ghost)
+  const overlapH=Math.floor(H*Z_OVERLAP_PCT); // top 30% del frame
+  if(overlapH<4) return 0;
+  
+  // Canvas reutilizable para evitar memory leak
+  const tmpC=window.__olC||document.createElement('canvas');
+  window.__olC=tmpC;
+  tmpC.width=W; tmpC.height=overlapH;
+  const tmpCtx=tmpC.getContext('2d');
+  
+  // Dibujar el frame actual (solo top 30%) en el canvas downsampled
+  tmpCtx.drawImage(v, 0, 0, sw, sh*Z_OVERLAP_PCT, 0, 0, W, overlapH);
+  const framePixels=tmpCtx.getImageData(0,0,W,overlapH).data;
+  
+  // Extraer bottom 30% del shot anterior (canvas original, sin alpha)
+  // Usar shots[shots.length-1].cv que guarda el canvas completo de captura
+  
+  // No podemos reconstruir el ghost aquí porque perdimos el canvasEl original.
+  // En su lugar, usamos el ghostCanvas visible (con alpha) como aproximación.
+  // Esto subestima la correlación (~10% menos), pero es conservador
+  // (falsos positivos de "mal overlap" son mejor que falsos negativos).
+  const prevShot=shots.length>0?shots[shots.length-1].cv:null;
+  if(!prevShot||!prevShot.width) return 0;
+  const psw=prevShot.width, psh=prevShot.height;
+  try {
+    tmpCtx.drawImage(prevShot, 0, psh*(1-Z_OVERLAP_PCT), psw, psh*Z_OVERLAP_PCT, 0, 0, W, overlapH);
+  } catch(e) {
+    return 0;
+  }
+  const ghostPixels=tmpCtx.getImageData(0,0,W,overlapH).data;
+  
+  // Correlacion cruzada normalizada (NCC) entre frame actual y ghost
+  // NCC es mas robusto que MAD ante cambios de brillo entre tomas
+  const n=W*overlapH;
+  let sumF=0, sumG=0, sumFG=0, sumF2=0, sumG2=0;
+  for(let i=0;i<n;i++){
+    const gi=i*4;
+    const f=framePixels[gi]*.299+framePixels[gi+1]*.587+framePixels[gi+2]*.114;
+    const g=ghostPixels[gi]*.299+ghostPixels[gi+1]*.587+ghostPixels[gi+2]*.114;
+    sumF+=f; sumG+=g; sumFG+=f*g; sumF2+=f*f; sumG2+=g*g;
+  }
+  const num=n*sumFG-sumF*sumG;
+  const den=Math.sqrt((n*sumF2-sumF*sumF)*(n*sumG2-sumG*sumG));
+  const ncc=den>0?Math.max(-1,Math.min(1,num/den)):0;
+  // NCC va de -1 a 1, escalamos a [0,1]
+  const score=Math.max(0, Math.min(1, (ncc+1)/2));
+  
+  // Actualizar UI si cambió significativamente
+  if(Math.abs(score-overlapScore)>0.05){
+    overlapScore=score;
+    updateOverlapWarning(score);
+  }
+  
+  return score;
+}
+
+// overlap check ahora integrado en loop() — stubs preservan compatibilidad
+function startOverlapCheck(){ /* reemplazado por loop() inline */ }
+function stopOverlapCheck(){ hideOverlapWarning(); }
+
+// ═══ Overlap warning modal — ghost vs frame side-by-side ═══
+function showOverlapModal(){
+  const modal=document.getElementById('overlapModal');
+  if(!modal) return;
+  
+  // Dibujar ghost (shot anterior — bottom 30% o right 30%) en canvas izquierdo
+  if(shots.length>=1){
+    const prevC=shots[shots.length-1].cv;
+    const gCanvas=document.getElementById('olGhostCanvas');
+    if(prevC&&gCanvas){
+      const gw=gCanvas.width,gh=gCanvas.height;
+      const ctx=gCanvas.getContext('2d');
+      ctx.clearRect(0,0,gw,gh);
+      if(Z_OVERLAP_DIR==='horizontal'){
+        ctx.drawImage(prevC, prevC.width*(1-Z_OVERLAP_PCT), 0, prevC.width*Z_OVERLAP_PCT, prevC.height, 0, 0, gw, gh);
+        ctx.fillStyle='rgba(100,200,255,.08)';ctx.fillRect(0,0,gw,gh);
+      }else{
+        ctx.drawImage(prevC, 0, prevC.height*(1-Z_OVERLAP_PCT), prevC.width, prevC.height*Z_OVERLAP_PCT, 0, 0, gw, gh);
+      }
+    }
+  }
+  
+  // Dibujar frame actual (top 30% o left 30%) en canvas derecho
+  const fCanvas=document.getElementById('olFrameCanvas');
+  if(v&&v.videoWidth&&fCanvas){
+    const fw=fCanvas.width,fh=fCanvas.height;
+    const ctx=fCanvas.getContext('2d');
+    ctx.clearRect(0,0,fw,fh);
+    if(Z_OVERLAP_DIR==='horizontal'){
+      ctx.drawImage(v, 0, 0, v.videoWidth*Z_OVERLAP_PCT, v.videoHeight, 0, 0, fw, fh);
+    }else{
+      ctx.drawImage(v, 0, 0, v.videoWidth, v.videoHeight*Z_OVERLAP_PCT, 0, 0, fw, fh);
+    }
+  }
+  
+  // Actualizar score
+  const pct=document.getElementById('olScorePct');
+  const fill=document.getElementById('olScoreFill');
+  if(pct&&fill){
+    const sc=Math.max(0,Math.min(1,overlapScore));
+    const p=Math.round(sc*100);
+    pct.textContent=p+'%';
+    pct.className='ol-score-pct'+(p>=25?' good':p>=15?' warn':' bad');
+    fill.style.width=p+'%';
+    fill.style.background=p>=25?'var(--ok,#7CBE8C)':p>=15?'var(--warn,#E0A45C)':'var(--danger,#D9705A)';
+  }
+  
+  modal.classList.add('show');
+}
+
+function hideOverlapModal(){
+  const modal=document.getElementById('overlapModal');
+  if(modal) modal.classList.remove('show');
+}
+
+// Retake the last shot (go back one step in Z mode)
+function retakeLastShot(){
+  if(shots.length===0||step<=0) return;
+  // Remove last shot
+  shots.pop();
+  step--;
+  // Clear ghost overlay
+  hideGhostOverlay();hideZArrow();
+  _prevGhostGray=null;_prevGhostW=0;_prevGhostH=0;
+  overlapScore=0;overlapWarningActive=false;
+  // Update UI
+  dShots();dThumbs();updateBtn();
+  var msgEl=document.getElementById('msg');
+  if(msgEl) msgEl.innerHTML='<b style="color:#fc5">Toma rehecha</b> — capture la '+(step+1)+'/'+N+' de nuevo';
+  // Resume camera loop for the next capture
+  if(!run&&!busy&&camOn){run=true;requestAnimationFrame(loop);}
+}
+
+function updateOverlapWarning(score){
+  const badge=document.getElementById('overlapBadge');
+  const msg=document.getElementById('overlapMsg');
+  if(!badge||!msg) return;
+  
+  // Usar thresholds calibrados si están disponibles, o defaults si no
+  var calOk = window.__calibratedNccOk !== undefined ? window.__calibratedNccOk : 0.25;
+  var calWarn = window.__calibratedNccWarn !== undefined ? window.__calibratedNccWarn : 0.15;
+  
+  if(score >= calOk){
+    // Overlap suficiente
+    badge.className='overlap-badge ok';
+    badge.textContent='⟷';
+    msg.textContent='Overlap OK ('+Math.round(score*100)+'%)';
+    msg.style.color='var(--accent-green,#0f8)';
+    overlapWarningActive=false;
+  }else if(score >= calWarn){
+    // Overlap marginal
+    badge.className='overlap-badge warn';
+    badge.textContent='⟷';
+    msg.textContent='Overlap bajo ('+Math.round(score*100)+'%) — alinee mejor';
+    msg.style.color='#fc5';
+    overlapWarningActive=true;
+  }else{
+    // Overlap insuficiente
+    badge.className='overlap-badge danger';
+    badge.textContent='✗';
+    msg.textContent='¡Overlap insuficiente! ('+Math.round(score*100)+'%) — deslice menos';
+    msg.style.color='#f44';
+    overlapWarningActive=true;
+  }
+}
+
+function hideOverlapWarning(){
+  const badge=document.getElementById('overlapBadge');
+  const msg=document.getElementById('overlapMsg');
+  if(badge) badge.className='overlap-badge hidden';
+  if(msg) msg.textContent='';
+  overlapWarningActive=false;
+}
+
+// FIX: esta declaración (const TILT_TARGET_ANGLE... / const TILT_TARGETS=[)
+// se había perdido en algún momento de una edición automática anterior,
+// dejando los 4 objetos de abajo "huérfanos" sin su array contenedor —
+// eso era un SyntaxError fatal que impedía que todo el <script> cargara.
+const TILT_TARGET_ANGLE=14, TILT_TOLERANCE=9;
+const TILT_TARGETS=[
+  {dBeta:-TILT_TARGET_ANGLE,dGamma:-TILT_TARGET_ANGLE,label:'arriba-izquierda'},
+  {dBeta:-TILT_TARGET_ANGLE,dGamma: TILT_TARGET_ANGLE,label:'arriba-derecha'},
+  {dBeta: TILT_TARGET_ANGLE,dGamma:-TILT_TARGET_ANGLE,label:'abajo-izquierda'},
+  {dBeta: TILT_TARGET_ANGLE,dGamma: TILT_TARGET_ANGLE,label:'abajo-derecha'},
+];
+
+function tiltInZone(cb,cg,rb,rg,target,tol){
+  if(rb===null||rg===null)return null;// sin referencia aún — no se puede evaluar
+  const dBeta=cb-rb,dGamma=cg-rg;
+  const dist=Math.hypot(dBeta-target.dBeta,dGamma-target.dGamma);
+  return dist<=tol;
+}
+
+async function requestOrientationPermission(){
+  try{
+    if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+      // iOS 13+ exige pedir permiso explícito dentro de un gesto del usuario
+      const res=await DeviceOrientationEvent.requestPermission();
+      if(res==='granted'){startOrientationTracking();return true}
+      return false;
+    }
+    if(typeof DeviceOrientationEvent!=='undefined'){
+      // Android / navegadores que no piden permiso explícito
+      startOrientationTracking();return true;
+    }
+  }catch(e){}
+  return false;
+}
+function startOrientationTracking(){
+  window.addEventListener('deviceorientation', onDeviceOrientation);
+}
+function stopOrientationTracking(){
+  window.removeEventListener('deviceorientation', onDeviceOrientation);
+  devOrientOn=false;
+}
+function onDeviceOrientation(e){
+  if(e.beta===null||e.gamma===null||e.beta===undefined||e.gamma===undefined)return;
+  curBeta=e.beta;curGamma=e.gamma;devOrientOn=true;
+  updateGyroIndicator();
+}
+// ═══ Indicador de estado del giroscopio ═══
+function updateGyroIndicator(){
+  const el=$('gyroIndicator'),dot=$('gyroDot'),label=$('gyroLabel');
+  if(!el)return;
+  // devOrientOn se actualiza en onDeviceOrientation() — si el evento
+  // nunca se disparó, el giroscopio no está disponible
+  if(devOrientOn){
+    el.className='gyro-indicator on';
+    label.textContent='Giro ✓';
+    el.title='Giroscopio activo — guiará la inclinación hacia cada esquina (PhotoScan)';
+  }else{
+    el.className='gyro-indicator off';
+    label.textContent='Giro ✗';
+    el.title='Sin giroscopio. Las 5 tomas serán desde el mismo ángulo (solo fusión por nitidez, sin anti-reflejo por paralaje)';
+  }
+}
+
+const SNAP=.07,SNAP2=.14,COOLDOWN=1500;// 1.5s between captures
+const $=id=>document.getElementById(id);
+const v=$('v'),eC=$('edgeC'),ex=eC.getContext('2d'),tmp=$('tmp'),tx=tmp.getContext('2d');
+const msg=$('msg'),cb=$('cb'),fg=$('fg'),strip=$('strip'),goBtn=$('goBtn'),rstBtn=$('rstBtn');
+// (spin/res antiguos removidos — ahora usamos las pantallas pn-screen)
+const gs=[0,1,2,3].map(i=>$('g'+i)),rs=[0,1,2,3].map(i=>$('r'+i)),ts=[0,1,2,3].map(i=>$('t'+i));
+
+// Actualizar indicador cuando se cargue el DOM (valor inicial)
+setTimeout(updateGyroIndicator,500);
+
+function layout(){
+  const cw=$('camWrap').offsetWidth,ch=$('camWrap').offsetHeight;
+  TGT.forEach((t,i)=>{ts[i].style.left=(t.x*cw)+'px';ts[i].style.top=(t.y*ch)+'px';gs[i].style.left=(t.x*cw)+'px';gs[i].style.top=(t.y*ch)+'px'});
+  // Inicializar ghost canvas si no existe
+  if(!ghostCanvas) initGhostOverlay();
+  if(ghostCanvas){ghostCanvas.width=cw;ghostCanvas.height=ch}
+  // Posicionar overlap ring
+  const ring=document.getElementById('zOverlapRing');
+  if(ring){
+    if(Z_OVERLAP_DIR==='horizontal'){
+      const r2=document.getElementById('zOverlapRingRight');
+      if(r2){r2.style.right='0';r2.style.width=(ch*Z_OVERLAP_PCT)+'px';r2.classList.add('show');}
+    }else{
+      ring.style.top=(ch*(1-Z_OVERLAP_PCT))+'px';
+    }
+  }
+}
+function dShots(){const e=$('shots');e.innerHTML='';for(let i=0;i<N;i++){const d=document.createElement('div');d.className='sd'+(i<shots.length?' done':i===step?' now':'');e.appendChild(d)}}
+function dThumbs(){const thumbs=strip.querySelectorAll('.th');for(let i=0;i<N;i++){if(i<thumbs.length){const t=thumbs[i];if(i<shots.length){t.innerHTML='<img src="'+shots[i].url+'">';t.classList.add('ok')}else{t.innerHTML='<span>'+(i+1)+'</span>';t.classList.remove('ok')}}}}
+function updateBtn(){goBtn.textContent='Procesar ('+shots.length+'/'+N+')';goBtn.disabled=shots.length<N;goBtn.className=shots.length>=N?'go ready':'go'}
+
+// ═══════════════════════════════════════════════════════════
+//  DETECTION — pure JS fallback (no OpenCV.js needed)
+// ═══════════════════════════════════════════════════════════
+//
+//  Escanea desde los 4 bordes del encuadre hacia adentro buscando
+//  el límite del documento (zona más clara que el fondo). Ajusta
+//  líneas a los puntos de borde encontrados y las interseca para
+//  obtener las 4 esquinas. Usa un RANSAC ligero (50 iteraciones)
+//  para robustez contra outliers.
+//
+//  Returns: [{x:, y:}, …] con coordenadas NORMALIZADAS (0-1), o null.
+//  Contrato idéntico a la versión OpenCV.js.
+
+function detectFallback(gray,w,h){
+  try{
+    // 1. Box blur 3×3 para reducir ruido de cámara
+    const s=new Float32Array(w*h);
+    for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+      const i=y*w+x;
+      s[i]=(gray[i-w-1]+gray[i-w]+gray[i-w+1]+gray[i-1]+gray[i]+gray[i+1]+gray[i+w-1]+gray[i+w]+gray[i+w+1])/9;
+    }
+    for(let i=0;i<w;i++){s[i]=gray[i];s[(h-1)*w+i]=gray[(h-1)*w+i]}
+    for(let y=0;y<h;y++){s[y*w]=gray[y*w];s[y*w+w-1]=gray[y*w+w-1]}
+
+    // 2. Estadísticas de brillo
+    let sum=0,sumSq=0,n=w*h;
+    for(let i=0;i<n;i++){sum+=s[i];sumSq+=s[i]*s[i]}
+    const mean=sum/n,std=Math.sqrt(Math.max(0,sumSq/n-mean*mean));
+
+    // 3. Determinar si el documento es más claro o más oscuro que el fondo
+    //    mirando la asimetría del histograma. Si la mediana < 128 el fondo
+    //    es claro y el documento oscuro (recibo térmico, membrete oscuro).
+    //    Si la mediana > 128 el fondo es oscuro y el documento claro (papel
+    //    blanco sobre mesa).
+    // Calcular mediana aproximada por histograma
+    const hist=new Uint32Array(256);
+    for(let i=0;i<n;i++)hist[Math.min(255,Math.max(0,Math.round(s[i])))]++;
+    let acc=0,half=n/2,median=128;
+    for(let v=0;v<256;v++){acc+=hist[v];if(acc>=half){median=v;break}}
+
+    const docIsDark=median<100;
+    // Si el documento es oscuro (recibo térmico, etc.), buscar regiones
+    // MÁS OSCURAS que el promedio (mean - sigma). Si es claro (papel
+    // blanco), buscar regiones MÁS CLARAS (mean + sigma).
+    const thr=docIsDark?mean-std*0.35:mean+std*0.35;
+
+    // 4. Máscara binaria
+    const doc=new Uint8Array(n);
+    for(let i=0;i<n;i++)doc[i]=docIsDark?(s[i]<thr?1:0):(s[i]>thr?1:0);
+
+    // 4. Escanear desde cada borde hacia adentro
+    const mg=Math.max(2,Math.floor(Math.min(w,h)*0.03));
+    const tp=[],bp=[],lp=[],rp=[];
+    const stp=Math.max(1,Math.floor(w/70));
+
+    for(let x=mg;x<w-mg;x+=stp){
+      for(let y=mg;y<h-mg;y++)if(doc[y*w+x]){tp.push({x,y});break}
+      for(let y=h-mg-1;y>=mg;y--)if(doc[y*w+x]){bp.push({x,y});break}
+    }
+    for(let y=mg;y<h-mg;y+=stp){
+      for(let x=mg;x<w-mg;x++)if(doc[y*w+x]){lp.push({x,y});break}
+      for(let x=w-mg-1;x>=mg;x--)if(doc[y*w+x]){rp.push({x,y});break}
+    }
+
+    const MIN=4;
+    if(tp.length<MIN||bp.length<MIN||lp.length<MIN||rp.length<MIN)return null;
+
+    // 5. Ajuste de líneas con RANSAC ligero (50 iters)
+    function fitLine(pts,fitY){
+      let ba=0,bb=0,bi=0,nn=pts.length,iters=Math.min(40,Math.floor(nn*(nn-1)/2));
+      const thrD=Math.max(w,h)*0.02;
+      for(let it=0;it<iters;it++){
+        const i1=Math.floor(Math.random()*nn);
+        let i2=Math.floor(Math.random()*nn);
+        if(i1===i2)continue;
+        const p1=pts[i1],p2=pts[i2];
+        let a,b;
+        if(fitY){if(Math.abs(p2.x-p1.x)<1)continue;a=(p2.y-p1.y)/(p2.x-p1.x);b=p1.y-a*p1.x}
+        else{if(Math.abs(p2.y-p1.y)<1)continue;a=(p2.x-p1.x)/(p2.y-p1.y);b=p1.x-a*p1.y}
+        let ic=0;
+        for(const p of pts){const pd=fitY?a*p.x+b:a*p.y+b;const e=fitY?Math.abs(pd-p.y):Math.abs(pd-p.x);if(e<thrD)ic++}
+        if(ic>bi){bi=ic;ba=a;bb=b}
+      }
+      if(bi<MIN)return null;
+      // Re-ajuste por mínimos cuadrados sobre todos los inliers
+      let sx=0,sy=0,sxy=0,sx2=0;
+      for(const p of pts){
+        const pd=fitY?ba*p.x+bb:ba*p.y+bb;
+        const e=fitY?Math.abs(pd-p.y):Math.abs(pd-p.x);
+        if(e<thrD){
+          const x=fitY?p.x:p.y,y=fitY?p.y:p.x;
+          sx+=x;sy+=y;sxy+=x*y;sx2+=x*x;
+        }
+      }
+      const de=bi*sx2-sx*sx;
+      if(Math.abs(de)>1){ba=(bi*sxy-sx*sy)/de;bb=(sy-ba*sx)/bi}
+      return{a:ba,b:bb,fitY};
+    }
+
+    const top=fitLine(tp,true),bot=fitLine(bp,true),left=fitLine(lp,false),right=fitLine(rp,false);
+    if(!top||!bot||!left||!right)return null;
+
+    // 6. Intersecar pares de líneas para obtener 4 esquinas
+    function intersect(l1,l2){
+      if(l1.fitY&&l2.fitY){if(Math.abs(l1.a-l2.a)<1e-8)return null;const x=(l2.b-l1.b)/(l1.a-l2.a);return{x,y:l1.a*x+l1.b}}
+      if(!l1.fitY&&!l2.fitY){if(Math.abs(l1.a-l2.a)<1e-8)return null;const y=(l2.b-l1.b)/(l1.a-l2.a);return{x:l1.a*y+l1.b,y}}
+      const h=l1.fitY?l1:l2,v=l1.fitY?l2:l1,de=1-v.a*h.a;
+      if(Math.abs(de)<1e-8)return null;const x=(v.a*h.b+v.b)/de;return{x,y:h.a*x+h.b};
+    }
+
+    const tl=intersect(top,left),tr=intersect(top,right),bl=intersect(bot,left),br=intersect(bot,right);
+    if(!tl||!tr||!bl||!br)return null;
+
+    // Validar: esquinas dentro de límites
+    const corners=[tl,tr,bl,br];
+    for(const c of corners)if(c.x<-w*0.15||c.x>w*1.15||c.y<-h*0.15||c.y>h*1.15)return null;
+
+    // Validar área mínima
+    let area=0;
+    for(let i=0;i<4;i++){const j=(i+1)%4;area+=corners[i].x*corners[j].y-corners[j].x*corners[i].y}
+    if(Math.abs(area)/2<w*h*0.06)return null;
+
+    // Normalizar a 0-1
+    const result=corners.map(c=>({x:c.x/w,y:c.y/h}));
+    
+    // Suavizado temporal (EMA) contra jitter del RANSAC
+    // Sin esto, los círculos guía bailan ±2-3% entre frames aunque
+    // el teléfono esté quieto, porque RANSAC usa Math.random() y cada
+    // frame puede converger a una solución ligeramente distinta.
+    if(detectFallback._prev){
+      const a=0.55; // peso del frame actual
+      for(let i=0;i<4;i++){
+        result[i].x=result[i].x*a+detectFallback._prev[i].x*(1-a);
+        result[i].y=result[i].y*a+detectFallback._prev[i].y*(1-a);
+      }
+    }
+    detectFallback._prev=result.map(c=>({x:c.x,y:c.y}));
+    return result;
+  }catch(e){return null}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DETECTION primary — tries OpenCV.js first, falls back to pure JS
+// ═══════════════════════════════════════════════════════════
+
+function detect(gray,w,h){
+  // Intentar con OpenCV.js primero (más preciso)
+  if(cvOk){
+    try{
+      const d=new Uint8Array(w*h);for(let i=0;i<w*h;i++)d[i]=Math.min(255,Math.max(0,gray[i]));
+      const src=cv.matFromImageData({data:d,width:w,height:h});
+      const bl=new cv.Mat(),th=new cv.Mat(),mo=new cv.Mat(),ct=new cv.MatVector(),hi=new cv.Mat();
+      cv.GaussianBlur(src,bl,new cv.Size(7,7),0);
+      cv.adaptiveThreshold(bl,th,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C,cv.THRESH_BINARY_INV,15,4);
+      const k1=cv.getStructuringElement(cv.MORPH_RECT,new cv.Size(5,5));
+      cv.morphologyEx(th,mo,cv.MORPH_CLOSE,k1,new cv.Point(-1,-1),3);
+      const k2=cv.getStructuringElement(cv.MORPH_RECT,new cv.Size(3,3));
+      cv.morphologyEx(mo,mo,cv.MORPH_OPEN,k2);
+      cv.findContours(mo,ct,hi,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_SIMPLE);
+      let best=null,bestS=0;
+      for(let i=0;i<ct.size();i++){
+        const c=ct.get(i),a=cv.contourArea(c);
+        if(a<w*h*0.08||a>w*h*0.93){continue}
+        const p=cv.arcLength(c,true),ap=new cv.Mat();
+        cv.approxPolyDP(c,ap,0.02*p,true);
+        if(ap.rows===4){
+          if(!cv.isContourConvex(ap)){ap.delete();continue}
+          const pts=[];for(let j=0;j<ap.rows;j++)pts.push({x:ap.intAt(j,0)/w,y:ap.intAt(j,1)/h});
+          const angles=[];
+          for(let j=0;j<4;j++){
+            const p0=pts[(j+3)%4],p1=pts[j],p2=pts[(j+1)%4];
+            angles.push(cornerAngle(p0,p1,p2));
+          }
+          const minAngle=Math.min(...angles),maxAngle=Math.max(...angles);
+          if(minAngle<35||maxAngle>150){ap.delete();continue}
+          const brightness=sampleInteriorBrightness(src,pts,w,h);
+          const s=score(pts,angles,brightness);
+          if(s>bestS){bestS=s;best=pts}
+          ap.delete();
+        }else{ap.delete()}
+      }
+      bl.delete();th.delete();mo.delete();ct.delete();hi.delete();k1.delete();k2.delete();src.delete();
+      if(best&&bestS>0.42){prevC=best;return best}
+    }catch(e){}
+  }
+  // Fallback a JS puro (no OpenCV.js necesario)
+  const fb=detectFallback(gray,w,h);
+  if(fb){prevC=fb;return fb}
+  return null;
+}
+
+function cornerAngle(p0,p1,p2){
+  // Ángulo en p1, formado por los segmentos p1→p0 y p1→p2, en grados.
+  const d1x=p0.x-p1.x,d1y=p0.y-p1.y,d2x=p2.x-p1.x,d2y=p2.y-p1.y;
+  const m1=Math.hypot(d1x,d1y),m2=Math.hypot(d2x,d2y);
+  if(m1<1e-6||m2<1e-6)return 90;
+  const cos=Math.max(-1,Math.min(1,(d1x*d2x+d1y*d2y)/(m1*m2)));
+  return Math.acos(cos)*180/Math.PI;
+}
+
+function sampleInteriorBrightness(grayMat,pts,w,h){
+  try{
+    const mask=cv.Mat.zeros(h,w,cv.CV_8UC1);
+    const arr=[];pts.forEach(p=>{arr.push(Math.round(p.x*w),Math.round(p.y*h))});
+    const ptsMat=cv.matFromArray(4,1,cv.CV_32SC2,arr);
+    const vec=new cv.MatVector();vec.push_back(ptsMat);
+    cv.fillPoly(mask,vec,new cv.Scalar(255));
+    const mean=cv.mean(grayMat,mask);
+    mask.delete();ptsMat.delete();vec.delete();
+    return mean[0]; // 0-255
+  }catch(e){return 140}// valor neutro si algo falla
+}
+
+function score(pts,angles,brightness){
+  if(pts.length<4)return 0;let s=0;
+  let minD=9;for(let i=0;i<4;i++)for(let j=i+1;j<4;j++){const d=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);if(d<minD)minD=d}
+  s+=Math.min(1,minD*3)*.22;
+  const w1=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y),w2=Math.hypot(pts[2].x-pts[3].x,pts[2].y-pts[3].y);
+  const h1=Math.hypot(pts[0].x-pts[2].x,pts[0].y-pts[2].y),h2=Math.hypot(pts[1].x-pts[3].x,pts[1].y-pts[3].y);
+  s+=(Math.min(w1,w2)/Math.max(w1,w2)*Math.min(h1,h2)/Math.max(h1,h2))*.22;
+  let ep=0;for(const p of pts)ep+=Math.min(p.x,1-p.x)+Math.min(p.y,1-p.y);s+=(1-ep/8)*.14;
+  let area=0;for(let i=0;i<4;i++){const j=(i+1)%4;area+=pts[i].x*pts[j].y-pts[j].x*pts[i].y}
+  s+=Math.max(0,1-Math.abs(Math.sqrt(Math.abs(area)/2)-.3)/.5)*.14;
+  // Qué tan cerca de 90° están las 4 esquinas (1.0 = perfecto, penaliza desviaciones)
+  if(angles){
+    const angleQuality=angles.reduce((acc,a)=>acc+Math.max(0,1-Math.abs(a-90)/60),0)/4;
+    s+=angleQuality*.16;
+  }
+  // Qué tan "papel" se ve el interior (más claro = más probable que sea
+  // un documento y no una mano/mesa/sombra)
+  if(brightness!==undefined){
+    const brightQuality=Math.max(0,Math.min(1,(brightness-70)/110));
+    s+=brightQuality*.12;
+  }
+  return Math.min(1,Math.max(0,s));
+}
+
+// ═══════════════════════════════════════════════════════════
+//  EDGE OVERLAY using OpenCV.js Canny
+// ═══════════════════════════════════════════════════════════
+
+function drawEdges(gray,w,h){
+  const vw=v.videoWidth||1280,vh=v.videoHeight||720;
+  eC.width=vw;eC.height=vh;ex.clearRect(0,0,vw,vh);
+  if(cvOk){
+    try{
+      const d=new Uint8Array(w*h);for(let i=0;i<w*h;i++)d[i]=Math.min(255,Math.max(0,gray[i]));
+      const src=cv.matFromImageData({data:d,width:w,height:h});
+      const bl=new cv.Mat(),ed=new cv.Mat();
+      cv.GaussianBlur(src,bl,new cv.Size(5,5),0);
+      // Canny adaptativo: en vez de umbrales fijos (50,150) que fallan con
+      // luz muy tenue o muy fuerte, se calculan a partir de la mediana de
+      // intensidad real del frame (técnica "auto-Canny"). Con poca luz,
+      // los umbrales bajan para seguir viendo bordes; con luz dura/reflejos,
+      // suben para no llenar la pantalla de ruido.
+      const median=medianIntensity(d);
+      const sigma=0.33;
+      const lo=Math.max(0,(1-sigma)*median);
+      const hi=Math.min(255,(1+sigma)*median);
+      cv.Canny(bl,ed,lo,hi);
+      const img=ex.createImageData(vw,vh),p=img.data;
+      const sx=vw/w,sy=vh/h;
+      for(let y=0;y<vh;y++)for(let x=0;x<vw;x++){
+        const si=Math.floor(y/sy)*w+Math.floor(x/sx);
+        if(si>=0&&si<w*h&&ed.ucharAt(si)>0){const idx=(y*vw+x)*4;p[idx]=0;p[idx+1]=255;p[idx+2]=100;p[idx+3]=100}
+      }
+      ex.putImageData(img,0,0);
+      src.delete();bl.delete();ed.delete();
+      return;
+    }catch(e){}
+  }
+  // Fallback Sobel
+  const gx=new Float32Array(w*h),gy=new Float32Array(w*h);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;gx[i]=-gray[i-w-1]+gray[i-w+1]-2*gray[i-1]+2*gray[i+1]-gray[i+w-1]+gray[i+w+1];gy[i]=-gray[i-w-1]-2*gray[i-w]-gray[i-w+1]+gray[i+w-1]+2*gray[i+w]+gray[i+w+1]}
+  const mag=new Float32Array(w*h);for(let i=0;i<w*h;i++)mag[i]=Math.sqrt(gx[i]*gx[i]+gy[i]*gy[i]);
+  const img=ex.createImageData(vw,vh),p=img.data;
+  const sx=vw/w,sy=vh/h;
+  for(let y=0;y<vh;y++)for(let x=0;x<vw;x++){
+    const si=Math.floor(y/sy)*w+Math.floor(x/sx);
+    if(si>=0&&si<w*h&&mag[si]>25){const idx=(y*vw+x)*4;p[idx]=0;p[idx+1]=255;p[idx+2]=100;p[idx+3]=100}
+  }
+  ex.putImageData(img,0,0);
+}
+
+function medianIntensity(d){
+  // Mediana aproximada por histograma (rápido, suficiente para auto-Canny;
+  // calcular la mediana exacta ordenando todo el frame cada cuadro sería
+  // demasiado costoso a 30fps).
+  const hist=new Uint32Array(256);
+  for(let i=0;i<d.length;i++)hist[d[i]]++;
+  const half=d.length/2;let acc=0;
+  for(let v=0;v<256;v++){acc+=hist[v];if(acc>=half)return v}
+  return 128;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MATCH — seguimiento de esquinas con guía activa
+// ═══════════════════════════════════════════════════════════
+//  Resalta el círculo de la esquina activa (step actual) con una
+//  animación pulsante para que el usuario sepa CUÁL esquina
+//  necesita alinear primero. Las esquinas ya capturadas se
+//  muestran como lock (verde) aunque se sigan detectando.
+
+function match(det){
+  mc=0;
+  if(!det){
+    rs.forEach(r=>r.className='r');
+    for(let i=0;i<4;i++){
+      const dl=document.getElementById('dl'+i);
+      if(dl){dl.classList.remove('show');dl.textContent='';}
+    }
+    return;
+  }
+  const cw=$('camWrap').offsetWidth,ch=$('camWrap').offsetHeight;
+  for(let i=0;i<4;i++){
+    const d=det[i],t=TGT[i],dist=Math.hypot(d.x-t.x,d.y-t.y);
+    gs[i].style.left=(d.x*cw)+'px';gs[i].style.top=(d.y*ch)+'px';
+    if(dist<SNAP){rs[i].className='r lock';mc++}
+    else if(dist<SNAP2){rs[i].className='r near'}
+    else{rs[i].className='r'}
+    // Actualizar label de distancia (PhotoScan-style)
+    const dl=document.getElementById('dl'+i);
+    if(dl){
+      if(dist<SNAP2){
+        const pxDist=Math.round(dist*Math.min(cw,ch));
+        dl.textContent=dist<SNAP?'✓':pxDist+'px';
+        dl.classList.add('show');
+      }else{
+        dl.classList.remove('show');
+      }
+    }
+  }
+  // Resaltar la esquina activa para la toma actual
+  for(let i=0;i<4;i++){
+    const isTarget=(step===0)||(step>=1&&step<=4&&i===step-1);
+    if(isTarget && !rs[i].className.includes('lock')){
+      rs[i].className='r target';
+    }
+  }
+  // Actualizar barra de estabilidad global
+  const sf=document.getElementById('stabFill');
+  if(sf){
+    const pct=Math.min(100,(stableCount/STABLE_FRAMES_NEEDED)*100);
+    sf.style.width=pct+'%';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════════════════
+
+function loop(){
+  if(!run||!camOn)return;
+  const vw=v.videoWidth,vh=v.videoHeight;
+  if(!vw||!vh||vw<100){requestAnimationFrame(loop);return}
+  // Resolución de análisis subida de .25 a .32 — más detalle para separar
+  // mejor un documento real de un falso positivo, con impacto de
+  // rendimiento todavía razonable en un teléfono de gama media.
+  const sc=.32,aw=Math.floor(vw*sc),ah=Math.floor(vh*sc);
+  tmp.width=aw;tmp.height=ah;tx.drawImage(v,0,0,aw,ah);
+  const fd=tx.getImageData(0,0,aw,ah),px=fd.data;
+  const gray=new Float32Array(aw*ah);for(let i=0;i<aw*ah;i++)gray[i]=px[i*4]*.299+px[i*4+1]*.587+px[i*4+2]*.114;
+  drawEdges(gray,aw,ah);
+  const c=detect(gray,aw,ah);
+  match(c);
+
+  // ═══ Overlap check inline en loop() — cada 60 frames (~1s) ═══
+  // Reutiliza gray[] ya decodificado en lugar de dibujar un canvas nuevo.
+  // Soporta overlap vertical (bottom vs top) y horizontal (right vs left).
+  _olFrameCount++;
+  if((docMode==='z'||docMode==='z-width') && step>0 && step<N && _prevGhostGray && _olFrameCount%60===0){
+    if(Z_OVERLAP_DIR==='horizontal'){
+      const olW=Math.floor(aw*Z_OVERLAP_PCT);
+      if(olW>=4&&_prevGhostW>=4){
+        const cw=Math.min(olW,_prevGhostW),ch=Math.min(ah,_prevGhostH),n=cw*ch;
+        let sF=0,sG=0,sFG=0,sF2=0,sG2=0;
+        for(let row=0;row<ch;row++){
+          for(let col=0;col<cw;col++){
+            // Frame actual: columna IZQUIERDA (donde debería estar el overlap)
+            const fv=gray[row*aw+col];
+            // Ghost: columna DERECHA de la toma anterior
+            const gv=_prevGhostGray[row*_prevGhostW+col];
+            sF+=fv;sG+=gv;sFG+=fv*gv;sF2+=fv*fv;sG2+=gv*gv;
+          }
+        }
+        const num=n*sFG-sF*sG;
+        const den=Math.sqrt((n*sF2-sF*sF)*(n*sG2-sG*sG));
+        const ncc=den>0?Math.max(-1,Math.min(1,num/den)):0;
+        const sc=Math.max(0,Math.min(1,(ncc+1)/2));
+        if(Math.abs(sc-overlapScore)>0.05){overlapScore=sc;updateOverlapWarning(sc);}
+      }
+    }else{
+      const olH=Math.floor(ah*Z_OVERLAP_PCT);
+      if(olH>=4&&_prevGhostH>=4){
+        const cw=Math.min(aw,_prevGhostW),ch=Math.min(olH,_prevGhostH),n=cw*ch;
+        let sF=0,sG=0,sFG=0,sF2=0,sG2=0;
+        for(let row=0;row<ch;row++){
+          for(let col=0;col<cw;col++){
+            const fv=gray[row*aw+col],gv=_prevGhostGray[row*_prevGhostW+col];
+            sF+=fv;sG+=gv;sFG+=fv*gv;sF2+=fv*fv;sG2+=gv*gv;
+          }
+        }
+        const num=n*sFG-sF*sG;
+        const den=Math.sqrt((n*sF2-sF*sF)*(n*sG2-sG*sG));
+        const ncc=den>0?Math.max(-1,Math.min(1,num/den)):0;
+        const sc=Math.max(0,Math.min(1,(ncc+1)/2));
+        if(Math.abs(sc-overlapScore)>0.05){overlapScore=sc;updateOverlapWarning(sc);}
+      }
+    }
+  }
+
+  // ¿Esta toma (2ª a 5ª) requiere inclinación real hacia una esquina?
+  // Solo aplica si tenemos giroscopio Y ya se capturó la foto central
+  // (que fija la referencia). Sin eso, tiltOk queda en null y se ignora
+  // — el sistema no exige algo que no puede medir.
+  let tiltOk=null, tiltLabel='';
+  if(step>=1 && step<=4 && devOrientOn && refBeta!==null){
+    const target=TILT_TARGETS[step-1];
+    tiltLabel=target.label;
+    tiltOk=tiltInZone(curBeta,curGamma,refBeta,refGamma,target,TILT_TOLERANCE);
+  }
+  const tiltRequired=(tiltOk!==null);
+  const tiltSatisfied=!tiltRequired||tiltOk;
+
+  // Estabilidad sostenida: antes, un solo frame con las 4 esquinas
+  // alineadas disparaba la captura de inmediato — vulnerable a un
+  // "match" casual de una sola imagen (temblor de mano, reflejo, etc).
+  // Ahora se exigen varios frames CONSECUTIVOS alineados Y con la
+  // inclinación correcta (si aplica) antes de disparar.
+  if(mc>=4&&tiltSatisfied){stableCount++}else{stableCount=0}
+  const stablePct=Math.min(100,(stableCount/STABLE_FRAMES_NEEDED)*100);
+
+  const pct=Math.min(100,(mc/4)*100);
+  fg.style.strokeDashoffset=190*(1-pct/100);
+
+  // ═══ Guía visual PhotoScan ═══
+  const arrow=$('tiltArrow'),cLabel=$('cornerLabel'),tFill=$('tiltFill'),cornerGuide=$('cornerGuide');
+  const cornerNames=['TL','TR','BL','BR'];
+  const tiltDirections=['↖ arriba-izquierda','↗ arriba-derecha','↙ abajo-izquierda','↘ abajo-derecha'];
+  const arrowSymbols=['↖','↗','↙','↘'];
+
+  if(step===0){
+    // Shot 1: todas las esquinas — centrar el documento
+    cornerGuide.classList.remove('show');
+    arrow.classList.remove('show');
+    cLabel.textContent='';
+    $('sTxt').textContent=!c?'Buscando...':mc>=4?'Centrado':'Alinee ('+mc+'/4)';
+    msg.innerHTML=!c?'Encuadre la factura completa':
+      mc>=4?'<b style="color:#0f8">✓ Centrado — quieto...</b>':
+      'Alinee las 4 esquinas (<b>'+mc+'</b>/4)';
+  }else if(step>=1&&step<=4){
+    // Shots 2-5: esquina específica + inclinación
+    const ci=step-1; // índice de esquina (0-3)
+    // Mostrar guía de inclinación
+    cornerGuide.classList.add('show');
+    cLabel.textContent='Esquina '+cornerNames[ci]+' ('+step+'/'+N+')';
+
+    if(tiltRequired&&!tiltOk){
+      // No está en la zona de inclinación correcta
+      arrow.textContent=arrowSymbols[ci];
+      arrow.className='tilt-arrow show';
+      // Calcular progreso del tilt
+      const dBeta=curBeta-refBeta,dGamma=curGamma-refGamma;
+      const target=TILT_TARGETS[ci];
+      const dist=Math.hypot(dBeta-target.dBeta,dGamma-target.dGamma);
+      const pctTilt=Math.min(100,Math.max(0,(1-dist/TILT_TOLERANCE)*100));
+      tFill.style.width=pctTilt+'%';
+      $('sTxt').textContent='Incline '+tiltDirections[ci];
+      msg.innerHTML='<b style="color:#fc5">'+arrowSymbols[ci]+' Incline '+tiltDirections[ci]+'</b>';
+    }else{
+      arrow.className='tilt-arrow'; // ocultar flecha
+      if(!tiltRequired){
+        // Sin giroscopio: solo guía visual de esquina, sin mensajes de inclinación
+        tFill.style.width='0%';
+        $('sTxt').textContent=mc>=4?'Alineado':'Alinee '+cornerNames[ci];
+        msg.innerHTML=mc>=4?'<b style="color:#0f8">✓ Alineado — quieto...</b>':'Alinee esquina <b>'+cornerNames[ci]+'</b> (<b>'+mc+'</b>/4)';
+      }else{
+        tFill.style.width='100%';
+        if(mc>=4){
+          $('sTxt').textContent='✓ Inclinación correcta';
+          msg.innerHTML='<b style="color:#0f8">✓ Inclinación correcta — quieto...</b>';
+        }else{
+          $('sTxt').textContent='Alinee esquina '+cornerNames[ci];
+          msg.innerHTML='Mantenga inclinación y alinee (<b>'+mc+'</b>/4)';
+        }
+      }
+    }
+  }else{
+    cornerGuide.classList.remove('show');
+    arrow.classList.remove('show');
+  }
+
+  // Mensaje de estabilidad (cuando mc>=4 y esperando frames)
+  if(mc>=4&&stableCount>=2&&stableCount<STABLE_FRAMES_NEEDED){
+    msg.innerHTML+=' <span style="color:#0f8;font-size:10px;">['+Math.round(stablePct)+'%]</span>';
+  }
+
+  if(stableCount>=STABLE_FRAMES_NEEDED){stableCount=0;setTimeout(capture,150);requestAnimationFrame(loop);return}
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CAPTURE
+// ═══════════════════════════════════════════════════════════
+
+function capture(){
+  if(step>=N||busy||!camOn)return;
+  const now=Date.now();
+  if(now-lastCapture<COOLDOWN)return;// cooldown
+  lastCapture=now;run=false;
+  if(step===0&&devOrientOn){refBeta=curBeta;refGamma=curGamma;}// referencia "de frente" para medir inclinación en las siguientes 4
+  cb.classList.add('flash');setTimeout(()=>cb.classList.remove('flash'),300);
+  const c=document.createElement('canvas');c.width=v.videoWidth||1280;c.height=v.videoHeight||720;
+  c.getContext('2d').drawImage(v,0,0);
+  var fullUrl = c.toDataURL('image/jpeg', getAdaptiveQuality());
+  // Generar thumbnail para persistencia (60px, JPEG calidad 0.6 ~500 bytes c/u)
+  var thumbC = document.createElement('canvas');
+  thumbC.width = 60; thumbC.height = Math.round(60 * c.height / c.width);
+  thumbC.getContext('2d').drawImage(c, 0, 0, thumbC.width, thumbC.height);
+  var thumbUrl = thumbC.toDataURL('image/jpeg', 0.6);
+  shots.push({url:fullUrl, thumbUrl:thumbUrl, cv:c});
+  dShots();dThumbs();updateBtn();      if(docMode==='z'||docMode==='z-width'){captureGhost(c);showZArrow();updateZGuidance(step+1,N);}else if(docMode==='normal'){saveNormalSession();}
+
+  // Almacenar ghost gray para NCC inline en loop() — bottom 30% (vertical) o right 30% (horizontal)
+  // al mismo factor de escala (0.32) que usa loop() para evitar work duplicado.
+  if(docMode==='z'||docMode==='z-width'){
+    const gs=0.32;
+    if(Z_OVERLAP_DIR==='horizontal'){
+      const gOlW=Math.floor(c.width*gs*Z_OVERLAP_PCT),gH=Math.floor(c.height*gs);
+      if(gOlW>10&&gH>=4){
+        const gT=document.createElement('canvas');gT.width=gOlW;gT.height=gH;
+        const gC=gT.getContext('2d');
+        gC.drawImage(c,c.width*(1-Z_OVERLAP_PCT),0,c.width*Z_OVERLAP_PCT,c.height,0,0,gOlW,gH);
+        const gD=gC.getImageData(0,0,gOlW,gH).data;
+        _prevGhostGray=new Float32Array(gOlW*gH);
+        for(let i=0;i<gOlW*gH;i++){const pi=i*4;_prevGhostGray[i]=gD[pi]*0.299+gD[pi+1]*0.587+gD[pi+2]*0.114;}
+        _prevGhostW=gOlW;_prevGhostH=gH;
+      }
+    }else{
+      const gW=Math.floor(c.width*gs),gTotalH=Math.floor(c.height*gs),gOlH=Math.floor(gTotalH*Z_OVERLAP_PCT);
+      if(gW>10&&gOlH>=4){
+        const gT=document.createElement('canvas');gT.width=gW;gT.height=gOlH;
+        const gC=gT.getContext('2d');
+        gC.drawImage(c,0,c.height*(1-Z_OVERLAP_PCT),c.width,c.height*Z_OVERLAP_PCT,0,0,gW,gOlH);
+        const gD=gC.getImageData(0,0,gW,gOlH).data;
+        _prevGhostGray=new Float32Array(gW*gOlH);
+        for(let i=0;i<gW*gOlH;i++){const pi=i*4;_prevGhostGray[i]=gD[pi]*0.299+gD[pi+1]*0.587+gD[pi+2]*0.114;}
+        _prevGhostW=gW;_prevGhostH=gOlH;
+      }
+    }
+  }
+
+  // Pipeline asincrono: enviar shot individual inmediatamente
+  if((docMode==='z'||docMode==='z-width') && !shotsUploading){
+    uploadShotToSession(c);
+  }
+  
+  // Overlap check ahora corre inline en loop() — resetear contador de frames
+  _olFrameCount = 0;
+
+  const cornerNames=['TL','TR','BL','BR'];
+  const tiltMsgs=[
+    'Incline hacia ARRIBA-IZQUIERDA (↖) siguiendo la flecha',
+    'Incline hacia ARRIBA-DERECHA (↗) siguiendo la flecha',
+    'Incline hacia ABAJO-IZQUIERDA (↙) siguiendo la flecha',
+    'Incline hacia ABAJO-DERECHA (↘) siguiendo la flecha',
+  ];
+
+  if(step+1<N){
+    const nextMsg=step===0 ?
+      '<b style="color:#fc5">↖ Incline hacia ARRIBA-IZQUIERDA para esquina TL</b>' :
+      '<b style="color:#fc5">'+tiltMsgs[step]+'</b>';
+    msg.innerHTML='<b style="color:#0f8">✓</b> Foto '+(step+1)+'/'+N+' — '+nextMsg;
+  }else{
+    msg.innerHTML='<b style="color:#0f8">✓</b> Foto '+(step+1)+'/'+N;
+  }
+  step++;
+  if(step>=N){
+    gs.forEach(g=>g.style.opacity='0');
+    ts.forEach(t=>t.style.display='none');
+    document.getElementById('tiltArrow').classList.remove('show');
+    document.getElementById('cornerGuide').classList.remove('show');
+    hideGhostOverlay();hideZArrow();
+    msg.innerHTML='<b style="color:#0f8">✓ '+N+' fotos</b>';
+    showReadyPopup();
+    return;
+  }
+
+  // Preparar guía para la SIGUIENTE toma antes de reiniciar el loop
+  setTimeout(()=>{
+    rs.forEach(r=>r.className='r');
+    mc=0;prevC=null;stableCount=0;
+    // Ghost overlay y flecha para modo Z
+    if((docMode==='z'||docMode==='z-width')&&step>=1&&step<N-1){showZArrow();updateZGuidance(step,N);}
+    // Si hay giroscopio y es shot 2-5, mostrar la flecha y esquina activa
+    if(step>=1&&step<=4&&devOrientOn&&refBeta!==null){
+      const ci=step-1;
+      document.getElementById('tiltArrow').className='tilt-arrow show';
+      document.getElementById('tiltArrow').textContent=['↖','↗','↙','↘'][ci];
+      document.getElementById('cornerGuide').classList.add('show');
+      document.getElementById('cornerLabel').textContent='Esquina '+cornerNames[ci]+' ('+(step+1)+'/'+N+')';
+    }
+    run=true;
+    requestAnimationFrame(loop);
+  },400);
+}
+
+function showReadyPopup(){
+  const el=document.getElementById('readyPopup');
+  if(!el)return;
+  // Actualizar títulos dinámicamente según N y docMode
+  const title=document.getElementById('popupTitle');
+  const sub=document.getElementById('popupSub');
+  if(title) title.textContent=N+' fotos listas';
+  if(sub) sub.textContent=docMode==='z'||docMode==='z-width'?'Tu servidor coserá las '+N+' fotos en una imagen '+(Z_OVERLAP_DIR==='horizontal'?'panorámica horizontal':'continua de alta resolución')+' y extraerá los datos con OCR.'
+    :'Tu servidor ya puede procesar la factura: alinear, mejorar y leer los datos.';
+  el.classList.add('show');
+
+  // Mostrar advertencia de overlap si aplica
+  if((docMode==="z"||docMode==="z-width") && overlapWarningActive){
+    const w=document.getElementById("popupOverlapWarn");
+    if(w){ w.style.display="block"; w.textContent="Warning: Overlap "+Math.round(overlapScore*100)+"% — Considere rehacer las tomas con mas solapamiento"; }
+  }
+}
+function hideReadyPopup(){
+  const el=document.getElementById('readyPopup');
+  if(el)el.classList.remove('show');
+
+  const pw=document.getElementById("popupOverlapWarn");if(pw)pw.style.display="none";
+}
+function showReviewModal(){
+  hideReadyPopup();
+  const grid=document.getElementById('reviewThumbGrid');
+  grid.innerHTML='';
+  // Generar grid dinámico según N (3 columnas, N filas)
+  const cols=3;
+  shots.forEach((s,i)=>{
+    const cell=document.createElement('div');
+    cell.style.width='100%';cell.style.aspectRatio='3/4';
+    cell.style.borderRadius='8px';cell.style.overflow='hidden';
+    cell.style.background='rgba(0,0,0,.3)';
+    cell.innerHTML='<img src="'+s.url+'" style="width:100%;height:100%;object-fit:cover">';
+    grid.appendChild(cell);
+  });
+  // Llenar los espacios vacíos si N no es múltiplo de 3
+  const remaining=(cols-(shots.length%cols))%cols;
+  for(let i=0;i<remaining;i++){
+    const empty=document.createElement('div');
+    empty.style.borderRadius='8px';empty.style.background='rgba(255,255,255,.03)';
+    grid.appendChild(empty);
+  }
+  document.getElementById('reviewModal').classList.add('show');
+}
+function hideReviewModal(){
+  document.getElementById('reviewModal').classList.remove('show');
+  showReadyPopup();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PROCESS
+// ═══════════════════════════════════════════════════════════
+
+// ─── Selector de modo de documento ───
+function pnSetDocMode(mode){
+  docMode=mode;
+  const btnN=$('modeBtnNormal'), btnZ=$('modeBtnZ'), btnZW=$('modeBtnZWidth'), btnID=$('modeBtnID');
+  const optZ=$('zOptions');
+  if(mode==='normal'){
+    N=5; docModeLabel='Normal'; Z_OVERLAP_DIR='vertical';
+    btnN.className='pn-btn';
+    btnN.style.background='linear-gradient(135deg,var(--gold-strong),var(--terracota))';
+    btnN.style.color='#241609';
+    btnN.style.borderColor='var(--gold)';
+    btnZ.className='pn-btn pn-btn-ghost';
+    btnZ.style.background='transparent';
+    btnZ.style.color='var(--cream)';
+    btnZ.style.borderColor='var(--line)';
+    btnZW.className='pn-btn pn-btn-ghost';
+    btnZW.style.background='transparent';
+    btnZW.style.color='var(--cream)';
+    btnZW.style.borderColor='var(--line)';
+    btnID.className='pn-btn pn-btn-ghost';
+    btnID.style.background='transparent';
+    btnID.style.color='var(--cream)';
+    btnID.style.borderColor='var(--line)';
+    optZ.style.display='none';
+    $('pn-splash-sub').textContent='Toma 5 fotos de tu factura. Tu servidor alinea, mejora y lee los datos automáticamente.';
+    $('pn-splash-pills').innerHTML='<span class="pn-pill">5 fotos guiadas</span><span class="pn-pill">Anti-reflejo</span><span class="pn-pill">Lectura automática</span>';
+  }else if(mode==='z-width'){
+    N=maxShots; docModeLabel='Z-width'; Z_OVERLAP_DIR='horizontal';
+    btnZW.className='pn-btn';
+    btnZW.style.background='linear-gradient(135deg,var(--gold-strong),var(--terracota))';
+    btnZW.style.color='#241609';
+    btnZW.style.borderColor='var(--gold)';
+    btnN.className='pn-btn pn-btn-ghost';
+    btnN.style.background='transparent';
+    btnN.style.color='var(--cream)';
+    btnN.style.borderColor='var(--line)';
+    btnZ.className='pn-btn pn-btn-ghost';
+    btnZ.style.background='transparent';
+    btnZ.style.color='var(--cream)';
+    btnZ.style.borderColor='var(--line)';
+    btnID.className='pn-btn pn-btn-ghost';
+    btnID.style.background='transparent';
+    btnID.style.color='var(--cream)';
+    btnID.style.borderColor='var(--line)';
+    optZ.style.display='block';
+    $('pn-splash-sub').textContent='Toma '+maxShots+' fotos en secuencia horizontal. Tu servidor las coserá en una imagen panorámica continua.';
+    $('pn-splash-pills').innerHTML='<span class="pn-pill">'+maxShots+' fotos en secuencia</span><span class="pn-pill">Costura horizontal</span><span class="pn-pill">Alta resolución</span>';
+  }else if(mode==='id'){
+    N=5; docModeLabel='ID'; Z_OVERLAP_DIR='vertical';
+    btnID.className='pn-btn';
+    btnID.style.background='linear-gradient(135deg,var(--gold-strong),var(--terracota))';
+    btnID.style.color='#241609';
+    btnID.style.borderColor='var(--gold)';
+    btnN.className='pn-btn pn-btn-ghost';
+    btnN.style.background='transparent';
+    btnN.style.color='var(--cream)';
+    btnN.style.borderColor='var(--line)';
+    btnZ.className='pn-btn pn-btn-ghost';
+    btnZ.style.background='transparent';
+    btnZ.style.color='var(--cream)';
+    btnZ.style.borderColor='var(--line)';
+    btnZW.className='pn-btn pn-btn-ghost';
+    btnZW.style.background='transparent';
+    btnZW.style.color='var(--cream)';
+    btnZW.style.borderColor='var(--line)';
+    optZ.style.display='none';
+    $('pn-splash-sub').textContent='Toma 5 fotos de tu cédula o pasaporte. Tu servidor corregirá la perspectiva a formato oficial con fondo blanco y exportará a 300 DPI.';
+    $('pn-splash-pills').innerHTML='<span class="pn-pill">5 fotos guiadas</span><span class="pn-pill">Formato oficial</span><span class="pn-pill">Fondo blanco + 300 DPI</span>';
+  }else{
+    N=maxShots; docModeLabel='Z'; Z_OVERLAP_DIR='vertical';
+    btnZ.className='pn-btn';
+    btnZ.style.background='linear-gradient(135deg,var(--gold-strong),var(--terracota))';
+    btnZ.style.color='#241609';
+    btnZ.style.borderColor='var(--gold)';
+    btnN.className='pn-btn pn-btn-ghost';
+    btnN.style.background='transparent';
+    btnN.style.color='var(--cream)';
+    btnN.style.borderColor='var(--line)';
+    btnZW.className='pn-btn pn-btn-ghost';
+    btnZW.style.background='transparent';
+    btnZW.style.color='var(--cream)';
+    btnZW.style.borderColor='var(--line)';
+    btnID.className='pn-btn pn-btn-ghost';
+    btnID.style.background='transparent';
+    btnID.style.color='var(--cream)';
+    btnID.style.borderColor='var(--line)';
+    optZ.style.display='block';
+    $('pn-splash-sub').textContent='Toma '+maxShots+' fotos en secuencia vertical. Tu servidor las coserá en una imagen continua de alta resolución.';
+    $('pn-splash-pills').innerHTML='<span class="pn-pill">'+maxShots+' fotos en secuencia</span><span class="pn-pill">Stitching automático</span><span class="pn-pill">Alta resolución</span>';
+  }
+  // Actualizar badge en topbar si existe
+  updateModeBadge();
+}
+function pnSetZCount(count){
+  maxShots=Math.max(Z_MIN, Math.min(Z_MAX, count));
+  N=maxShots;
+  // Actualizar botones visuales
+  [8,10,12].forEach(n=>{
+    const btn=$('zCount'+n);
+    if(btn){
+      if(n===count){
+        btn.style.background='var(--gold)';
+        btn.style.color='#241609';
+        btn.style.borderColor='var(--gold)';
+      }else{
+        btn.style.background='transparent';
+        btn.style.color='var(--cream)';
+        btn.style.borderColor='var(--line)';
+      }
+    }
+  });
+  $('pn-splash-sub').textContent='Toma '+maxShots+' fotos en secuencia vertical. Tu servidor las coserá en una imagen continua de alta resolución.';
+  $('pn-splash-pills').innerHTML='<span class="pn-pill">'+maxShots+' fotos en secuencia</span><span class="pn-pill">Stitching automático</span><span class="pn-pill">Alta resolución</span>';
+  updateModeBadge();
+}
+function updateModeBadge(){
+  const badge=$('modeBadge');
+  if(!badge)return;
+  if(docMode==='z'||docMode==='z-width'){
+    const label=Z_OVERLAP_DIR==='horizontal'?'ZW':'Z';
+    badge.textContent=label+' '+N;
+    badge.style.display='inline';
+    badge.style.background=Z_OVERLAP_DIR==='horizontal'?'rgba(100,220,180,.2)':'rgba(100,200,255,.2)';
+    badge.style.color=Z_OVERLAP_DIR==='horizontal'?'#4e8':'#8cf';
+    badge.style.border=Z_OVERLAP_DIR==='horizontal'?'1px solid rgba(100,220,180,.3)':'1px solid rgba(100,200,255,.3)';
+  }else if(docMode==='id'){
+    badge.textContent='ID '+N;
+    badge.style.display='inline';
+    badge.style.background='rgba(255,200,100,.2)';
+    badge.style.color='#fc5';
+    badge.style.border='1px solid rgba(255,200,100,.3)';
+  }else{
+    badge.style.display='none';
+  }
+}
+
+
+
+// ── Pipeline asincrono: subir un shot individual ──
+async function uploadShotToSession(canvas) {
+  try {
+    // Measure RTT on first shot
+    if (!_adapMeasured) { measureRTT(); }
+    var quality = getAdaptiveQuality();
+    const blob = await new Promise((ok, no) => 
+      canvas.toBlob(b => b ? ok(b) : no('fail'), 'image/jpeg', quality)
+    );
+    
+    // Determinar session_id y total_shots
+    let sid = asyncSessionId;
+    let total = N;
+    let sIdx = step - 1; // step ya fue incrementado en capture()
+    if (sIdx < 0) sIdx = 0;
+    
+    // Construir URL
+    let url = '/process-shot?';
+    if (!sid) {
+      url += 'session_id=new&total_shots=' + total;
+    } else {
+      url += 'session_id=' + sid + '&shot_index=' + sIdx;
+    }
+    url += '&overlap=0.30&seam=feather&mode=limpio';
+    // Incluir ajustes del ghost (offsetY, scale) como hints de alineación
+    // El servidor los usa como initial_h para mejorar ORB matching
+    if (Math.abs(ghostOffsetY) > 0.001 || ghostScale !== 1.0) {
+      url += '&ghost_offset_y=' + ghostOffsetY.toFixed(4) + '&ghost_scale=' + ghostScale.toFixed(4);
+    }
+    
+    const fd = new FormData();
+    fd.append('image', blob, 'shot_' + sIdx + '.jpg');
+    
+    const r = await fetch(url, { method: 'POST', body: fd });
+    const d = await r.json();
+    
+    if (d.success) {
+      asyncSessionId = d.session_id;
+      uploadedShots.add(sIdx);
+      saveSessionState();
+      setThumbnailStatus(sIdx, 'ok');
+      
+      // Auto-calibración: enviar la primera toma al servidor para
+      // ajustar thresholds de detección dinámicamente.
+      // El servidor analiza contraste, entropía y NCC auto-correlación,
+      // y devuelve thresholds calibrados para Canny, Gauss, approx_epsilon
+      // y también ncc_overlap_ok/warn para la UI de overlap.
+      if (sIdx === 0 && !window.__calibrated) {
+        window.__calibrated = true;
+        const calForm = new FormData();
+        calForm.append('image', blob, 'calibrate.jpg');
+        fetch('/calibrate', { method: 'POST', body: calForm })
+          .then(function(r) { return r.json(); })
+          .then(function(calData) {
+            if (calData.success && calData.calibrated) {
+              console.log('[Calibrate] Detectability:', calData.detectability_label,
+                'score:', calData.stats.detectability_score);
+              // Almacenar NCC thresholds calibrados (solo relevante en modo Z)
+              if (calData.params) {
+                if (docMode === 'z') {
+                  window.__calibratedNccOk = calData.params.ncc_overlap_ok;
+                  window.__calibratedNccWarn = calData.params.ncc_overlap_warn;
+                  console.log('[Calibrate] NCC OK threshold:', calData.params.ncc_overlap_ok,
+                    'Warn threshold:', calData.params.ncc_overlap_warn);
+                }
+              }
+              // Mostrar badge de calibración
+              var badge = document.getElementById('modeBadge');
+              if (badge) {
+                badge.textContent = 'Cal: ' + calData.detectability_label;
+                badge.style.display = 'inline';
+              }
+            }
+          })
+          .catch(function(err) {
+            console.warn('[Calibrate] Error:', err.message);
+          });
+      }
+      // Marcar thumbnail como subido (check verde)
+      const thumbs = document.querySelectorAll('.st');
+      if (thumbs[sIdx]) {
+        thumbs[sIdx].classList.add('uploaded');
+        thumbs[sIdx].setAttribute('data-status', 'ok');
+      }
+      
+      // Si es el ultimo shot, se process() se hara cargo del finalize
+      if (sIdx === total - 1) {
+        console.log('[Async] Ultimo shot subido. Presiona Procesar para finalizar.');
+      }
+    } else {
+      // Marcar thumbnail como fallido (X rojo)
+      const st = document.querySelectorAll('.st');
+      setThumbnailStatus(sIdx, 'fail');
+      if (st[sIdx]) { st[sIdx].classList.add('upload-failed'); st[sIdx].setAttribute('data-status','fail'); }
+      console.warn('[Async] Error subiendo shot', sIdx, ':', d.error);
+    }
+  } catch (e) {
+    // Marcar thumbnail como fallido por error de conexion
+    const si = Math.max(0, step - 1);
+    const st = document.querySelectorAll('.st');
+    setThumbnailStatus(si, 'fail');
+    if (st[si]) { st[si].classList.add('upload-failed'); st[si].setAttribute('data-status','connfail'); }
+    console.warn('[Async] Error de conexion subiendo shot:', e);
+    // No bloquear la captura si falla la subida
+  }
+}
+
+async function process(){
+  if(shots.length<N||busy)return;
+  // En modo Z con overlap insuficiente, mostrar modal comparativo
+  if(docMode==='z' && overlapWarningActive && !window.__overlapOverridden){
+    hideReadyPopup();
+    showOverlapModal();
+    return;
+  }
+  window.__overlapOverridden=false;
+  hideReadyPopup();
+  document.getElementById('reviewModal').classList.remove('show');
+  document.getElementById('overlapModal').classList.remove('show');
+  busy=true;goBtn.disabled=true;goBtn.textContent='Procesando...';
+  pnGoTo('screen-processing');
+  document.getElementById('pn-retryWrap').style.display='none';
+  document.getElementById('pn-procSub').textContent='Enviando '+N+' fotos a tu servidor…';
+  try{
+    const fd=new FormData();
+    for(let i=0;i<shots.length;i++){
+      document.getElementById('pn-procSub').textContent='Subiendo foto '+(i+1)+'/'+N+'…';
+      const b=shots[i].cv?await new Promise((ok,no)=>shots[i].cv.toBlob(b=>b?ok(b):no('fail'),'image/jpeg',0.85)):await fetch(shots[i].url).then(r=>r.blob());
+      fd.append('shot_'+i,b,'s'+i+'.jpg');
+    }
+    if(docMode==='z'||docMode==='z-width'){
+      if(N>=12){
+        document.getElementById('pn-procSub').textContent='Creando job asincrono de stitching...';
+        const r=await fetch('/process-shot/'+asyncSessionId+'/finalize-async?ocr=true&save=true',{method:'POST'});
+        const d=await r.json();
+        if(d.success && d.ocr_data){clearSessionState();}
+        if(!d.success){pnShowProcessError(d.error||'Error creando job asincrono.');busy=false;goBtn.disabled=false;updateBtn();return;}
+        const jid=d.job_id;
+        const est=d.estimated_time_seconds||15;
+        // Monitorear en background via Service Worker (notificaciones)
+        watchJobInSW(jid, est);
+        document.getElementById('pn-procSub').textContent='Stitching en background (0%)...';
+        const pi=2000;
+        const mp=Math.max(60,Math.ceil(est*3));
+        let pc=0;
+        const poll=async()=>{
+          try{
+            const p=await fetch('/job-status/'+jid);
+            const ps=await p.json();
+            if(!ps.success){pnShowProcessError('Error consultando job.');busy=false;goBtn.disabled=false;updateBtn();return;}
+            const pg=ps.progress;
+            document.getElementById('pn-procSub').textContent=pg.message+(pg.sub_message?': '+pg.sub_message:'')+' ('+pg.percent+'%)';
+            const bar=document.getElementById('pn-procBar');
+            if(bar&&pg.percent>0)bar.style.width=pg.percent+'%';
+            if(ps.status==='completed'){pnRenderResult(ps.result);pnGoTo('screen-result');busy=false;return;}
+            if(ps.status==='failed'){pnShowProcessError(ps.error||'Stitching fallo.');busy=false;goBtn.disabled=false;updateBtn();return;}
+            if(ps.status==='cancelled'){pnShowProcessError('Job cancelado.');busy=false;goBtn.disabled=false;updateBtn();return;}
+            if(++pc>mp){pnShowProcessError('Tiempo excedido.');busy=false;goBtn.disabled=false;updateBtn();return;}
+            setTimeout(poll,pi);
+          }catch(e){pnShowProcessError('Error conexion: '+e.message);busy=false;goBtn.disabled=false;updateBtn();}
+        };
+        poll();
+        return;
+      }
+      document.getElementById('pn-procSub').textContent='Finalizando stitching incremental y ejecutando OCR…';
+      const r=await fetch('/process-shot/'+asyncSessionId+'/finalize?ocr=true&save=true',{method:'POST'});
+      const d=await r.json();
+      if(!d.success){
+        pnShowProcessError(d.error||'El servidor no pudo finalizar el stitching.');
+        busy=false;goBtn.disabled=false;updateBtn();
+        return;
+      }
+      pnRenderResult(d);
+      pnGoTo('screen-result');
+      busy=false;
+    }else{
+      document.getElementById('pn-procSub').textContent='Alineando, fusionando y leyendo con OCR…';
+      const isID = (docMode==='id');
+      const endpoint = isID ? '/process-id' : '/process';
+      const params = isID ? '?output=png&dpi=300' : '?mode=limpio&capture_mode=factura';
+      const r=await fetch(endpoint + params, {method:'POST', body:fd});
+      const d=await r.json();
+      if(!d.success){
+        const msg = isID ? 'El servidor no pudo procesar el documento de identidad.' : 'El servidor no pudo procesar la factura.';
+        pnShowProcessError(d.error||msg);
+        busy=false;goBtn.disabled=false;updateBtn();
+        return;
+      }
+      if(isID){
+        // Renderizar resultado de ID (sin OCR, solo imagen procesada)
+        pnRenderIDResult(d);
+      }else{
+        pnRenderResult(d);
+      }
+      pnGoTo('screen-result');
+      busy=false;
+    }
+  }catch(e){
+    pnShowProcessError('No se pudo conectar con el servidor. Verifica que esté encendido y que el teléfono esté en la misma red WiFi.');
+    busy=false;goBtn.disabled=false;updateBtn();
+  }
+}
+
+// Called when user clicks "Procesar de todas formas" — bypasses overlap check
+function proceedWithProcess(){
+  window.__overlapOverridden=true;
+  process();
+}
+function pnShowProcessError(msg){
+  document.getElementById('pn-errText').textContent=msg;
+  document.getElementById('pn-retryWrap').style.display='block';
+}
+function pnRetry(){ if(shots.length>=N) process(); else pnResetFlow(); }
+
+// ═══════════════════════════════════════════════════════════
+//  CAMERA
+// ═══════════════════════════════════════════════════════════
+
+async function startCam(){
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}},audio:false});
+    v.srcObject=stream;
+    await new Promise((ok,fail)=>{v.onloadedmetadata=()=>{v.play().then(ok).catch(ok)};v.onerror=fail;setTimeout(ok,3000)});
+    camOn=true;layout();prevC=null;
+
+    // Solicitar permiso de giroscopio (iOS 13+ requiere gesto del usuario)
+    // Esto permite medir la inclinación del teléfono para tomas 2-N
+    requestOrientationPermission();
+
+    msg.textContent='Apunte al documento';
+    setTimeout(()=>{run=true;requestAnimationFrame(loop)},300);
+  }catch(e){msg.textContent='Sin camara — sube fotos';showUpload()}
+}
+
+function showUpload(){
+  camOn=false;v.style.display='none';
+  const d=document.createElement('div');
+  d.style.cssText='position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#111';
+  d.innerHTML='<div style="font-size:40px;margin-bottom:8px">📁</div><p style="color:#aaa;font-size:13px;margin-bottom:8px">Sube 5 fotos</p><input type="file" id="fI" multiple accept="image/*" capture="environment" style="display:none"><button style="background:#0f5;color:#000;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer" onclick="document.getElementById(\'fI\').click()">Elegir</button>';
+  document.querySelector('.cam').appendChild(d);
+  $('fI').addEventListener('change',e=>{[...e.target.files].forEach(f=>{if(shots.length>=N)return;const r=new FileReader();r.onload=ev=>{shots.push({url:ev.target.result});step++;dShots();dThumbs();updateBtn();if(shots.length>=N)msg.textContent='¡Listo! Presione PROCESAR'};r.readAsDataURL(f)})});
+}
+
+function resetAll(){
+  hideReadyPopup();
+  document.getElementById('reviewModal').classList.remove('show');
+  hideGhostOverlay();hideZArrow();
+  // Ocultar flecha direccional y guía de esquina (PhotoScan)
+  document.getElementById('tiltArrow').classList.remove('show');
+  document.getElementById('cornerGuide').classList.remove('show');
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  run=false;shots=[];step=0;busy=false;camOn=false;mc=0;prevC=null;stableCount=0;
+  asyncSessionId=null;uploadedShots.clear();shotsUploading=false;clearSessionState();clearNormalSession();initUploadProgress();
+  _prevGhostGray=null;_prevGhostW=0;_prevGhostH=0;_olFrameCount=0;hideOverlapWarning();
+  detectFallback._prev=null;// limpiar EMA del detector para que no arrastre esquinas viejas
+  refBeta=null;refGamma=null;// nueva referencia de inclinación en la próxima foto central
+  gs.forEach(g=>{g.style.opacity='1';g.querySelector('.r').className='r'});
+  ts.forEach(t=>t.style.display='');
+  dShots();dThumbs();updateBtn();
+  fg.style.strokeDashoffset=190;
+  startCam();
+}
+
+cb.addEventListener('click',()=>{if(step<N&&!busy&&!run){run=true;requestAnimationFrame(loop)}else if(run&&mc<4){capture()}});
+goBtn.addEventListener('click',process);
+rstBtn.addEventListener('click',resetAll);
+dShots();dThumbs();layout();updateBtn();
+window.addEventListener('resize',layout);
+
+/* =========================================================================
+   πNAD — capa de marca: navegación entre pantallas, health check,
+   render dinámico de campos (según InvoiceData.to_dict() de
+   ocr/extractor.py) y feedback loop a /correct.
+   ========================================================================= */
+function pnGoTo(id){
+  document.querySelectorAll('.pn-screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function pnToast(msg){
+  const t=document.getElementById('pn-toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3000);
+}
+(async function pnCheckHealth(){
+  const el=document.getElementById('pn-connStatus'), txt=document.getElementById('pn-connText');
+  try{
+    const r=await fetch('/health',{cache:'no-store'});
+    const d=await r.json();
+    el.classList.add('ok');
+    txt.textContent=`Servidor conectado (v${d.version||'?'})`;
+  }catch(e){
+    el.classList.add('bad');
+    txt.textContent='No se detecta el servidor. Enciéndelo con iniciar_servidor.bat';
+  }
+})();
+
+let pnCapStarted=false;
+function pnStartCapture(){
+  clearSessionState(); // Nueva captura = descartar sesion guardada
+  // Reiniciar calibración del detector para el nuevo documento
+  window.__calibrated = false;
+  window.__calibratedNccOk = undefined;
+  window.__calibratedNccWarn = undefined;
+  var badge = document.getElementById('modeBadge');
+  if (badge) badge.style.display = 'none';
+  fetch('/calibrate?reset=true', { method: 'POST' }).catch(function(){});
+  // Inicializar strip de thumbnails con N elementos dinámicos
+  initStrip(N);
+  pnGoTo('screen-capture-wrap');
+  initUploadProgress();
+  requestOrientationPermission();// pedir dentro del gesto del usuario; si falla, se degrada con gracia
+  if(!pnCapStarted){ pnCapStarted=true; startCam(); }
+  else if(!camOn){ startCam(); }
+}
+function initStrip(n){
+  const s=$('strip');
+  if(!s)return;
+  s.innerHTML='';
+  for(let i=0;i<n;i++){
+    const d=document.createElement('div');
+    d.className='th';
+    d.setAttribute('data-index', i);
+    d.innerHTML='<span>'+(i+1)+'</span>';
+    s.appendChild(d);
+  }
+}
+function pnCancelCapture(){
+  clearSessionState();
+  hideReadyPopup();
+  document.getElementById('reviewModal').classList.remove('show');
+  hideGhostOverlay();hideZArrow();
+  _prevGhostGray=null;_prevGhostW=0;_prevGhostH=0;_olFrameCount=0;hideOverlapWarning();
+if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null;}
+  run=false; camOn=false;
+  pnGoTo('screen-how');
+}
+
+const PN_FIELD_LABELS = {
+  razon_social:'Razón social / Emisor', rif_emisor:'RIF', cliente:'Cliente', direccion:'Dirección',
+  numero_factura:'N.º de factura', numero_control:'N.º de control', fecha:'Fecha',
+  telefono:'Teléfono', base_imponible:'Base imponible', iva:'IVA', total:'Total',
+  condicion_pago:'Condición de pago', currency:'Moneda', exchange_rate:'Tasa de cambio (BS/USD)'
+};
+const PN_FIELD_ORDER = ['razon_social','rif_emisor','cliente','direccion','numero_factura','numero_control','fecha',
+  'telefono','base_imponible','iva','total','currency','exchange_rate','condicion_pago'];
+const PN_SKIP_KEYS = new Set(['raw_text','ocr_confidence','validation_errors','all_rates','ocr_stats',
+  'total_bs','total_usd','total_eur','total_cop','total_ars']);
+
+let pnLastOcrData=null;
+function pnPrettify(k){ return k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); }
+function pnEscape(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function pnRenderResult(data){
+  document.getElementById('pn-previewImg').src = 'data:image/jpeg;base64,' + data.enhanced_image;
+  pnLastOcrData = data.ocr_data || {};
+
+  const conf = data.ocr_confidence || 0;
+  const banner = document.getElementById('pn-confBanner');
+  const txt = document.getElementById('pn-confText');
+  banner.classList.remove('low','bad');
+  if(conf >= 0.75){ txt.textContent = `Confianza del OCR: ${(conf*100).toFixed(0)}%. Revisa y confirma.`; }
+  else if(conf >= 0.4){ banner.classList.add('low'); txt.textContent = `Confianza del OCR: ${(conf*100).toFixed(0)}%. Revisa con cuidado los campos marcados.`; }
+  else { banner.classList.add('bad'); txt.textContent = `Confianza baja (${(conf*100).toFixed(0)}%). Te recomendamos volver a tomar las fotos con mejor luz.`; }
+
+  const warnBox = document.getElementById('pn-validationWarns');
+  warnBox.innerHTML = '';
+  if(data.validation_errors && data.validation_errors.length){
+    const div = document.createElement('div');
+    div.className = 'pn-warn-list';
+    div.innerHTML = '⚠ ' + data.validation_errors.map(e=>pnEscape(e)).join('<br>⚠ ');
+    warnBox.appendChild(div);
+  }
+
+  const container = document.getElementById('pn-fieldsContainer');
+  container.innerHTML = '';
+  const keys = Object.keys(pnLastOcrData).filter(k => !PN_SKIP_KEYS.has(k));
+  keys.sort((a,b)=>{
+    const ia = PN_FIELD_ORDER.indexOf(a), ib = PN_FIELD_ORDER.indexOf(b);
+    if(ia===-1 && ib===-1) return 0;
+    if(ia===-1) return 1;
+    if(ib===-1) return -1;
+    return ia-ib;
+  });
+  keys.forEach(key=>{
+    const raw = pnLastOcrData[key];
+    if(raw !== null && typeof raw === 'object') return;
+    const value = (raw===null || raw===undefined) ? '' : String(raw);
+    const label = PN_FIELD_LABELS[key] || pnPrettify(key);
+    const card = document.createElement('div');
+    card.className = 'pn-field';
+    card.innerHTML = `
+      <label>${pnEscape(label)}</label>
+      <div class="row">
+        <input type="text" value="${pnEscape(value)}" placeholder="No detectado — toca para escribir" data-field="${key}" data-original="${pnEscape(value)}">
+        ${value ? `<span class="pn-badge">Auto</span>` : ''}
+      </div>`;
+    container.appendChild(card);
+  });
+
+  document.getElementById('pn-rawText').textContent = (pnLastOcrData.raw_text || '').trim() || '(sin texto detectado)';
+  document.getElementById('pn-rawText').style.display = 'none';
+}
+
+// Renderiza resultado de ID (sin OCR, solo imagen + metadatos)
+function pnRenderIDResult(data){
+  const media = data.media_type || 'image/png';
+  const prefix = media === 'image/png' ? 'data:image/png;base64,' : 'data:image/jpeg;base64,';
+  document.getElementById('pn-previewImg').src = prefix + data.processed_image;
+
+  const conf = data.stats?.best_sharpness || 0;
+  const banner = document.getElementById('pn-confBanner');
+  const txt = document.getElementById('pn-confText');
+  banner.classList.remove('low','bad');
+  txt.textContent = 'Documento de identidad procesado a ' + data.width_px + '\u00d7' + data.height_px + ' px @ ' + data.dpi + ' DPI. Formato: ' + data.format_detected + '.';
+
+  // Mostrar metadatos del ID
+  const container = document.getElementById('pn-fieldsContainer');
+  container.innerHTML = '';
+  
+  const card = document.createElement('div');
+  card.className = 'pn-field';
+  card.innerHTML = '<label>FORMATO</label><div class="row"><input type="text" value="' + pnEscape(data.format_detected || 'cedula_ve') + '" readonly></div>';
+  container.appendChild(card);
+  
+  const dimCard = document.createElement('div');
+  dimCard.className = 'pn-field';
+  dimCard.innerHTML = '<label>DIMENSIONES</label><div class="row"><input type="text" value="' + data.width_px + '\u00d7' + data.height_px + ' px @ ' + data.dpi + ' DPI" readonly></div>';
+  container.appendChild(dimCard);
+  
+  const mmCard = document.createElement('div');
+  mmCard.className = 'pn-field';
+  mmCard.innerHTML = '<label>TAMAÑO FÍSICO</label><div class="row"><input type="text" value="' + data.width_mm + '\u00d7' + data.height_mm + ' mm / ' + data.dpi + ' DPI" readonly></div>';
+  container.appendChild(mmCard);
+  
+  if(data.has_white_background){
+    const bgCard = document.createElement('div');
+    bgCard.className = 'pn-field';
+    bgCard.innerHTML = '<label>FONDO</label><div class="row"><input type="text" value="Blanco puro aplicado" readonly><span class="pn-badge">\u2713</span></div>';
+    container.appendChild(bgCard);
+  }
+  
+  pnLastOcrData = {};
+  document.getElementById('pn-rawText').textContent = 'Documento de identidad: no aplica OCR de texto.';
+  document.getElementById('pn-rawText').style.display = 'none';
+}
+function pnToggleRaw(){
+  const el=document.getElementById('pn-rawText');
+  el.style.display = (el.style.display==='block')?'none':'block';
+}
+
+async function pnConfirmInvoice(){
+  const inputs = document.querySelectorAll('#pn-fieldsContainer input[data-field]');
+  const corrections = [];
+  inputs.forEach(inp=>{
+    const field = inp.dataset.field, original = inp.dataset.original, current = inp.value;
+    if(current !== original && current.trim() !== ''){
+      corrections.push({field_name:field, wrong_value:original, correct_value:current});
+    }
+  });
+  for(const c of corrections){
+    try{
+      await fetch('/correct', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(c) });
+    }catch(e){ console.warn('No se pudo registrar corrección', c.field_name, e); }
+  }
+  document.getElementById('pn-savedSub').textContent = corrections.length
+    ? `Guardado. Registramos ${corrections.length} corrección(es) para mejorar la próxima lectura.`
+    : 'Ya quedó registrada. Tu negocio, al día.';
+  pnGoTo('screen-saved');
+}
+
+function pnResetFlow(){
+  clearSessionState();
+  clearNormalSession();
+  hideReadyPopup();
+  document.getElementById('reviewModal').classList.remove('show');
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  run=false; shots=[]; step=0; busy=false; camOn=false; mc=0; prevC=null; stableCount=0; pnCapStarted=false;
+  refBeta=null; refGamma=null;
+  gs.forEach(g=>{ g.style.opacity='1'; g.querySelector('.r').className='r'; });
+  ts.forEach(t=>{ t.style.display=''; });
+  dShots(); dThumbs(); updateBtn();
+  fg.style.strokeDashoffset=190;
+  pnGoTo('screen-splash');
+}
+
+/* =========================================================================
+   HISTORIAL — Libro de Compras/Ventas
+   ========================================================================= */
+let historySearchTimer=null;
+
+function pnOpenHistory(){
+  pnGoTo('screen-history');
+  pnLoadHistory();
+  const input=document.getElementById('historySearch');
+  input.value='';
+  input.oninput=()=>{
+    clearTimeout(historySearchTimer);
+    historySearchTimer=setTimeout(()=>pnLoadHistory(input.value.trim()),350);
+  };
+}
+
+async function pnLoadHistory(search){
+  const listEl=document.getElementById('historyList');
+  const emptyEl=document.getElementById('historyEmpty');
+  const summaryEl=document.getElementById('historySummary');
+  try{
+    const params=new URLSearchParams({limit:'100'});
+    if(search)params.set('search',search);
+    const [listRes,summaryRes]=await Promise.all([
+      fetch('/invoices?'+params.toString()).then(r=>r.json()),
+      fetch('/invoices/summary').then(r=>r.json()),
+    ]);
+
+    if(!listRes.success){ summaryEl.textContent='No se pudo cargar el historial.'; return; }
+
+    const items=listRes.items||[];
+    if(summaryRes.success){
+      const s=summaryRes.summary;
+      const monedas=Object.entries(s.por_moneda||{}).map(([c,d])=>`${d.count} en ${c}`).join(' · ');
+      summaryEl.textContent=`${s.total_facturas} factura(s) registradas${monedas?' — '+monedas:''}`;
+    }
+
+    listEl.innerHTML='';
+    emptyEl.style.display=items.length?'none':'block';
+
+    items.forEach(inv=>{
+      const card=document.createElement('div');
+      card.className='hist-card';
+      const thumb=inv.thumbnail_b64?`data:image/jpeg;base64,${inv.thumbnail_b64}`:'';
+      const warnBadge=(inv.validation_errors&&inv.validation_errors.length)
+        ? `<span class="hist-badge">${inv.validation_errors.length} aviso(s)</span>` : '';
+      card.innerHTML=`
+        ${thumb?`<img src="${thumb}" alt="">`:'<div style="width:48px;height:48px;border-radius:8px;background:#150c04;flex:none;"></div>'}
+        <div class="hist-info">
+          <div class="hist-name">${pnEscHist(inv.razon_social||inv.numero_factura||'Sin nombre')}</div>
+          <div class="hist-meta">${pnEscHist(inv.fecha||'')} ${inv.numero_factura?'· N° '+pnEscHist(inv.numero_factura):''}</div>
+          ${warnBadge}
+        </div>
+        <div class="hist-total">${inv.total?pnEscHist(inv.total):'—'}<br><span style="font-size:10px;color:rgba(244,224,171,.4);font-weight:400;">${pnEscHist(inv.currency||'')}</span></div>
+      `;
+      card.onclick=()=>pnDeleteInvoicePrompt(inv.id, inv.razon_social||inv.numero_factura);
+      listEl.appendChild(card);
+    });
+  }catch(e){
+    summaryEl.textContent='No se pudo conectar con el servidor.';
+    console.error(e);
+  }
+}
+
+function pnEscHist(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function pnDeleteInvoicePrompt(id, label){
+  if(!confirm(`¿Eliminar "${label||('#'+id)}" del historial? Esta acción no se puede deshacer.`))return;
+  try{
+    const r=await fetch('/invoices/'+id, {method:'DELETE'});
+    const d=await r.json();
+    if(d.success)pnLoadHistory(document.getElementById('historySearch').value.trim());
+  }catch(e){ console.error(e); }
+}
+
+function pnExportInvoices(fmt){
+  const search=document.getElementById('historySearch').value.trim();
+  const params=new URLSearchParams({fmt});
+  if(search)params.set('search',search);
+  window.location.href='/invoices/export?'+params.toString();
+}
+
+</script>
+<script>
+// Session recovery: resume or discard
+function resumeRecoveredSession() {
+  var banner = document.getElementById('sessionRecoveryBanner');
+  if (banner) banner.classList.remove('show');
+  pnGoTo('screen-capture-wrap');
+  // Restart camera
+  startCam();
+}
+
+function discardRecoveredSession() {
+  var saved = getSavedSession();
+  if (saved && saved.sessionId) {
+    // Try to delete the session on server
+    fetch('/process-shot/' + saved.sessionId, { method: 'DELETE' }).catch(function(){});
+  }
+  clearSessionState();
+  var banner = document.getElementById('sessionRecoveryBanner');
+  if (banner) banner.classList.remove('show');
+  pnGoTo('screen-splash');
+}
+
+// PWA: Register Service Worker (ES module + classic fallback)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // Feature detection: ES module service workers
+    // Chrome 80+, Firefox 114+, Safari 16.4+, Edge 80+
+    function supportsModuleSW() {
+      try {
+        if (ServiceWorkerRegistration.prototype.hasOwnProperty('type')) return true;
+      } catch(e) {}
+      var ua = navigator.userAgent;
+      return (
+        (/Chrome\/(8\d|9\d|\d{3,})/.test(ua) && !/Edg\//.test(ua)) ||
+        /Firefox\/(11[4-9]|1[2-9]\d)/.test(ua) ||
+        (/Version\/(16\.[4-9]|1[7-9]\d)/.test(ua) && /Safari/.test(ua) && !/Chrome/.test(ua)) ||
+        /Edg\/(8\d|9\d|\d{3,})/.test(ua)
+      );
+    }
+
+    var useModule = supportsModuleSW();
+    var swUrl = useModule ? '/sw.js' : '/sw-classic.js';
+    var regOpts = useModule ? { type: 'module', scope: '/' } : { scope: '/' };
+
+    navigator.serviceWorker.register(swUrl, regOpts)
+      .then(function(reg) {
+        console.log('[PWA] SW ' + (useModule ? 'ES module' : 'classic') + ' registrado, scope:', reg.scope);
+        reg.addEventListener('updatefound', function() {
+          var inst = reg.installing;
+          if (inst) {
+            inst.addEventListener('statechange', function() {
+              if (inst.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[PWA] Nueva versión disponible');
+              }
+            });
+          }
+        });
+      })
+      .catch(function(err) {
+        console.warn('[PWA] Error SW (' + swUrl + '):', err.message);
+        if (useModule) {
+          console.log('[PWA] Fallback a classic...');
+          navigator.serviceWorker.register('/sw-classic.js', { scope: '/' })
+            .then(function(r) { console.log('[PWA] SW classic (fallback) ok, scope:', r.scope); })
+            .catch(function(e) { console.warn('[PWA] Fallback falló:', e.message); });
+        }
+      });
+  });
+  window.addEventListener('online', () => document.body.classList.remove('offline'));
+  window.addEventListener('offline', () => document.body.classList.add('offline'));
+}
+
+// ═══════════════════════════════════════════════════════
+//  Notificaciones push locales (vía Service Worker polling)
+// ═══════════════════════════════════════════════════════
+
+/**
+ * Envía un job al Service Worker para que lo monitoree en
+ * segundo plano y muestre una notificación cuando termine.
+ *
+ * Cuando el usuario cierra el navegador y el SW queda activo
+ * (PWA instalada), las notificaciones llegan aunque la app
+ * no esté abierta. En navegador normal sin instalar, funciona
+ * mientras el SW esté vivo (~30s tras cerrar última pestaña).
+ *
+ * @param {string} jobId    - ID del job a monitorear
+ * @param {number} estSecs  - Tiempo estimado en segundos
+ */
+function watchJobInSW(jobId, estSecs) {
+  if (!('serviceWorker' in navigator)) {
+    console.log('[Notify] No Service Worker support');
+    return;
+  }
+
+  // Solicitar permiso de notificación si no lo tenemos
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
+  // Usar navigator.serviceWorker.ready para esperar a que el SW esté activo
+  // (en la primera carga, controller puede ser null hasta que el SW se active)
+  navigator.serviceWorker.ready.then(function(reg) {
+    if (reg.active) {
+      reg.active.postMessage({
+        type: 'watch-job',
+        jobId: jobId,
+        estimatedSeconds: estSecs || 30,
+      });
+      console.log('[Notify] Sent job ' + jobId + ' to SW for background monitoring');
+    }
+  }).catch(function(err) {
+    console.warn('[Notify] Error sending to SW:', err.message);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+
+
+// Session recovery: restore stitching session from localStorage
+// Called immediately (script is at end of <body>, DOM is ready)
+if (typeof recoverSession === 'function') {
+  recoverSession().then(function(restored) {
+    if (restored) {
+      console.log('[PWA] Sesion de stitching recuperada desde localStorage');
+    }
+  });
+}
+
+</script>

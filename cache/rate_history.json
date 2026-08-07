@@ -1,0 +1,109 @@
+{
+  "entries": [
+    {
+      "timestamp": 1785601367.059019,
+      "date": "01/08/2026 12:22",
+      "rates": {
+        "USD": 1.0,
+        "BS": 746.63,
+        "VES": 746.63,
+        "source_count": 1,
+        "paralelo_ves": 838.47,
+        "EUR": 0.92,
+        "COP": 4100.0,
+        "ARS": 980.0
+      },
+      "source": "unknown"
+    },
+    {
+      "timestamp": 1785601501.0401092,
+      "date": "01/08/2026 12:25",
+      "rates": {
+        "USD": 1.0,
+        "BS": 746.63,
+        "VES": 746.63,
+        "source_count": 1,
+        "paralelo_ves": 838.47,
+        "EUR": 0.92,
+        "COP": 4100.0,
+        "ARS": 980.0
+      },
+      "source": "unknown"
+    },
+    {
+      "timestamp": 1785601571.8491247,
+      "date": "01/08/2026 12:26",
+      "rates": {
+        "USD": 1.0,
+        "BS": 746.63,
+        "VES": 746.63,
+        "source_count": 1,
+        "paralelo_ves": 838.47,
+        "EUR": 0.92,
+        "COP": 4100.0,
+        "ARS": 980.0
+      },
+      "source": "unknown"
+    },
+    {
+      "timestamp": 1785864821.6513567,
+      "date": "04/08/2026 13:33",
+      "rates": {
+        "USD": 1.0,
+        "BS": 752.09,
+        "VES": 752.09,
+        "source_count": 1,
+        "paralelo_ves": 830.86,
+        "EUR": 0.92,
+        "COP": 4100.0,
+        "ARS": 980.0
+      },
+      "source": "unknown"
+    },
+    {
+      "timestamp": 1785865001.066744,
+      "date": "04/08/2026 13:36",
+      "rates": {
+        "USD": 1.0,
+        "BS": 752.09,
+        "VES": 752.09,
+        "source_count": 1,
+        "paralelo_ves": 830.86,
+        "EUR": 0.92,
+        "COP": 4100.0,
+        "ARS": 980.0
+      },
+      "source": "unknown"
+    },
+    {
+      "timestamp": 1785955591.0014384,
+      "date": "05/08/2026 14:46",
+      "rates": {
+        "USD": 1.0,
+        "BS": 755.16,
+        "VES": 755.16,
+        "source_count": 1,
+        "paralelo_ves": 830.6,
+        "EUR": 0.92,
+        "COP": 4100.0,
+        "ARS": 980.0
+      },
+      "source": "unknown"
+    },
+    {
+      "timestamp": 1785955824.9774916,
+      "date": "05/08/2026 14:50",
+      "rates": {
+        "USD": 1.0,
+        "BS": 755.16,
+        "VES": 755.16,
+        "source_count": 1,
+        "paralelo_ves": 830.6,
+        "EUR": 0.92,
+        "COP": 4100.0,
+        "ARS": 980.0
+      },
+      "source": "unknown"
+    }
+  ]
+}

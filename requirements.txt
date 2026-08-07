@@ -1,0 +1,47 @@
+# ============================================================
+# NAD Scanner — Dependencias del proyecto (Render.com)
+# ============================================================
+# Instalación: pip install -r requirements.txt
+#
+# Optimizado para deployment en Render.com con Tesseract OCR
+
+# ── Procesamiento de imágenes ──
+opencv-python>=4.9.0
+numpy>=1.26.0
+Pillow>=10.2.0
+
+# ── OCR (Tesseract - Motor principal) ──
+# Requiere Tesseract binario del sistema (instalado en build script)
+pytesseract>=0.3.10
+
+# ── Google Drive API ──
+google-api-python-client>=2.120.0
+google-auth-oauthlib>=1.2.0
+
+# ── Servidor Web (Flask) ──
+flask>=3.0.0
+cryptography>=42.0.0
+flask-socketio>=5.3.0
+python-socketio>=5.10.0
+
+# ── Utilidades ──
+pydantic>=2.6.0
+PyJWT>=2.8.0
+requests>=2.31.0
+reportlab>=4.0.0
+email-validator>=2.0.0
+stripe>=7.0.0
+
+# ── Multi-formato Input ──
+PyMuPDF>=1.24.0           # PDF → imagen
+pdfplumber>=0.11.0        # PDF texto/tablas nativos
+python-docx>=1.1.0        # DOCX
+python-pptx>=0.6.23       # PPTX
+openpyxl>=3.1.0           # XLSX
+beautifulsoup4>=4.12.0    # HTML
+
+# ── Reading Order ──
+scipy>=1.12.0             # KDTree para clustering
+
+# ── Supabase (opcional, si se usa) ──
+supabase>=2.0.0

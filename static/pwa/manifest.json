@@ -1,0 +1,22 @@
+{
+  "name": "NAD Scanner - Tu Negocio Al Día",
+  "short_name": "NAD Scanner",
+  "description": "Escanea y procesa facturas automáticamente",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4285f4",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/pwa/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/pwa/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

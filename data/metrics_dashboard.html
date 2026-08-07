@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Métricas OCR</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        .metric {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2196F3;
+        }
+        .metric-label {
+            color: #999;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .chart-container {
+            position: relative;
+            height: 250px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .status.ok {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .refresh-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .refresh-btn:hover {
+            background: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard de Métricas OCR</h1>
+        <button class="refresh-btn" onclick="loadMetrics()">Actualizar Métricas</button>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h2>Total de Procesamientos</h2>
+                <div class="metric" id="total-processings">0</div>
+                <div class="metric-label">Facturas procesadas</div>
+            </div>
+            
+            <div class="card">
+                <h2>Confianza Promedio</h2>
+                <div class="metric" id="avg-confidence">0%</div>
+                <div class="metric-label">Calidad OCR promedio</div>
+            </div>
+            
+            <div class="card">
+                <h2>Tiempo Promedio</h2>
+                <div class="metric" id="avg-time">0ms</div>
+                <div class="metric-label">Tiempo de procesamiento</div>
+            </div>
+            
+            <div class="card">
+                <h2>Tasa de Éxito</h2>
+                <div class="metric" id="success-rate">0%</div>
+                <div class="metric-label">Procesamientos exitosos</div>
+            </div>
+        </div>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h2>Confianza OCR</h2>
+                <div class="chart-container">
+                    <canvas id="confidenceChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Tiempo de Procesamiento</h2>
+                <div class="chart-container">
+                    <canvas id="timeChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Distribución de Tipos de Documento</h2>
+                <div class="chart-container">
+                    <canvas id="docTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Estado del Sistema</h2>
+            <div id="system-status" class="status ok">Sistema funcionando correctamente</div>
+            <div style="margin-top: 20px;">
+                <h3>Últimas Métricas</h3>
+                <pre id="last-metrics" style="background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto;">Cargando...</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let confidenceChart = null;
+        let timeChart = null;
+        let docTypeChart = null;
+
+        function loadMetrics() {
+            // Simular carga de métricas (en producción, esto cargaría del backend)
+            const mockMetrics = {
+                total_processings: 150,
+                avg_confidence: 0.87,
+                avg_processing_time_ms: 1850,
+                success_rate: 0.92,
+                confidence_history: [0.85, 0.86, 0.87, 0.86, 0.88, 0.87, 0.89, 0.87],
+                time_history: [1900, 1850, 1800, 1820, 1780, 1850, 1800, 1850],
+                document_types: {
+                    'factura': 120,
+                    'recibo': 20,
+                    'nota_credito': 8,
+                    'nota_debito': 2
+                }
+            };
+
+            // Actualizar métricas principales
+            document.getElementById('total-processings').textContent = mockMetrics.total_processings;
+            document.getElementById('avg-confidence').textContent = (mockMetrics.avg_confidence * 100).toFixed(1) + '%';
+            document.getElementById('avg-time').textContent = mockMetrics.avg_processing_time_ms.toFixed(0) + 'ms';
+            document.getElementById('success-rate').textContent = (mockMetrics.success_rate * 100).toFixed(1) + '%';
+
+            // Actualizar estado del sistema
+            const statusDiv = document.getElementById('system-status');
+            if (mockMetrics.avg_confidence > 0.8 && mockMetrics.success_rate > 0.9) {
+                statusDiv.className = 'status ok';
+                statusDiv.textContent = 'Sistema funcionando correctamente';
+            } else if (mockMetrics.avg_confidence > 0.7) {
+                statusDiv.className = 'status warning';
+                statusDiv.textContent = 'Sistema con advertencias (confianza media)';
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = 'Sistema con errores (confianza baja)';
+            }
+
+            // Mostrar últimas métricas
+            document.getElementById('last-metrics').textContent = JSON.stringify(mockMetrics, null, 2);
+
+            // Actualizar gráficos
+            updateCharts(mockMetrics);
+        }
+
+        function updateCharts(metrics) {
+            // Gráfico de confianza
+            const ctx1 = document.getElementById('confidenceChart').getContext('2d');
+            if (confidenceChart) confidenceChart.destroy();
+            confidenceChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['1', '2', '3', '4', '5', '6', '7', '8'],
+                    datasets: [{
+                        label: 'Confianza OCR',
+                        data: metrics.confidence_history,
+                        borderColor: '#2196F3',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de tiempo
+            const ctx2 = document.getElementById('timeChart').getContext('2d');
+            if (timeChart) timeChart.destroy();
+            timeChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: ['1', '2', '3', '4', '5', '6', '7', '8'],
+                    datasets: [{
+                        label: 'Tiempo (ms)',
+                        data: metrics.time_history,
+                        borderColor: '#4CAF50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de tipos de documento
+            const ctx3 = document.getElementById('docTypeChart').getContext('2d');
+            if (docTypeChart) docTypeChart.destroy();
+            docTypeChart = new Chart(ctx3, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(metrics.document_types),
+                    datasets: [{
+                        data: Object.values(metrics.document_types),
+                        backgroundColor: ['#2196F3', '#4CAF50', '#FF9800', '#F44336']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Cargar métricas al inicio
+        loadMetrics();
+    </script>
+</body>
+</html>

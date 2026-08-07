@@ -1,0 +1,18 @@
+{
+  "timestamp": 1785952217.7556846,
+  "rates": {
+    "USD": 1.0,
+    "BS": 755.16,
+    "VES": 755.16,
+    "source_count": 1,
+    "paralelo_ves": 830.6,
+    "EUR": 0.92,
+    "COP": 4100.0,
+    "ARS": 980.0,
+    "date": "05/08/2026",
+    "source": "dolarapi_com",
+    "source_list": [
+      "dolarapi_com"
+    ]
+  }
+}
