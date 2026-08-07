@@ -213,12 +213,11 @@ class EnhanceConfig:
 class OcrConfig:
     """Parámetros del Bloque 6 — OCR y extracción."""
 
-    engine: str = "tesseract"
-    """Motor OCR: 'tesseract' (estable en Windows), 'paddleocr_vl', 'paddle_ve', o 'paddle'.
-        PaddleOCR-VL 1.5 es el motor principal recomendado por su capacidad
-        de entender layout visual y extraer datos estructurados de facturas.
-        Tesseract está configurado como motor principal en Windows por estabilidad.
-        Para usar PaddleOCR-VL en Windows, requiere solucionar dependencias de PyTorch."""
+    engine: str = "easyocr"
+    """Motor OCR: 'easyocr' (Python puro, funciona en plataformas gratuitas),
+        'tesseract' (requiere binarios del sistema), 'paddleocr_vl', 'paddle_ve', o 'paddle'.
+        EasyOCR está configurado como motor principal para deployment en plataformas gratuitas
+        porque no requiere binarios del sistema."""
 
     lang: str = "es"
     """Idioma para OCR."""

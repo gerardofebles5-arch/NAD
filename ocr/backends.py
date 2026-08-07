@@ -5,6 +5,7 @@ Backends que implementan OCRBackend para distintos motores:
   - PaddleBackend:      PaddleOCR estándar
   - PaddleVEBackend:    PaddleOCR + post-procesamiento Venezuela
   - TesseractBackend:   Tesseract OCR vía pytesseract
+  - EasyOCRBackend:     EasyOCR (Python puro, funciona en plataformas gratuitas)
   - DocTRBackend:       docTR (Document Text Recognition) — opcional
   - SuryaBackend:       Surya OCR — opcional
 """
@@ -430,7 +431,113 @@ class TesseractBackend(OCRBackend):
 
 
 # ═══════════════════════════════════════════════════════════════
-#  BACKEND 4: docTR (Document Text Recognition) — OPCIONAL
+#  BACKEND 4: EasyOCR (Python puro, funciona en plataformas gratuitas)
+# ═══════════════════════════════════════════════════════════════
+
+_HAS_EASYOCR = False
+try:
+    import easyocr
+    _HAS_EASYOCR = True
+except ImportError:
+    pass
+
+
+class EasyOCRBackend(OCRBackend):
+    """
+    Backend de EasyOCR.
+    Usa PyTorch para OCR, no requiere binarios del sistema.
+    Ideal para deployment en plataformas gratuitas.
+    """
+
+    def _build_metadata(self) -> BackendMetadata:
+        available = _HAS_EASYOCR
+        error = "" if _HAS_EASYOCR else "easyocr no instalado. pip install easyocr"
+        version = ""
+        if _HAS_EASYOCR:
+            try:
+                import easyocr
+                version = getattr(easyocr, "__version__", "desconocida")
+            except Exception:
+                pass
+        return BackendMetadata(
+            name="easyocr",
+            display_name="EasyOCR",
+            version=version,
+            description="EasyOCR: PyTorch-based OCR (Python puro)",
+            requires_gpu=False,
+            languages=("es", "en", "fr", "de", "pt"),
+            dependencies=("easyocr", "torch", "torchvision"),
+            available=available,
+            init_error=error,
+        )
+
+    def initialize(self):
+        if self._initialized:
+            return
+        if not _HAS_EASYOCR:
+            self._metadata.available = False
+            self._metadata.init_error = "easyocr no instalado"
+            raise ImportError("easyocr no instalado. pip install easyocr")
+        try:
+            # EasyOCR reader: usa GPU si está disponible, sino CPU
+            self._reader = easyocr.Reader(
+                [CONFIG.ocr.lang],
+                gpu=False,  # Forzar CPU para plataformas gratuitas
+                verbose=False
+            )
+            self._initialized = True
+        except Exception as e:
+            self._metadata.available = False
+            self._metadata.init_error = str(e)
+            raise
+
+    def recognize(
+        self,
+        image: np.ndarray,
+        confidence_threshold: Optional[float] = None,
+    ) -> List[WordResult]:
+        self.ensure_initialized()
+
+        threshold = confidence_threshold if confidence_threshold is not None \
+            else CONFIG.ocr.confidence_threshold
+
+        # EasyOCR espera RGB. OpenCV es BGR.
+        if image.shape[2] == 3:
+            import cv2
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        else:
+            image_rgb = image
+
+        # Ejecutar inferencia
+        results = self._reader.readtext(image_rgb)
+
+        words = []
+        for (bbox, text, conf) in results:
+            text = text.strip()
+            conf = float(conf)
+            if not text or conf < threshold:
+                continue
+
+            # EasyOCR bbox: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+            # Convertir a formato estándar (x, y, w, h)
+            x_coords = [p[0] for p in bbox]
+            y_coords = [p[1] for p in bbox]
+            x = int(min(x_coords))
+            y = int(min(y_coords))
+            w = int(max(x_coords) - x)
+            h = int(max(y_coords) - y)
+
+            words.append(WordResult(
+                text=text,
+                confidence=conf,
+                bbox=(x, y, w, h),
+            ))
+
+        return words
+
+
+# ═══════════════════════════════════════════════════════════════
+#  BACKEND 5: docTR (Document Text Recognition) — OPCIONAL
 # ═══════════════════════════════════════════════════════════════
 
 _HAS_DOCTR = False

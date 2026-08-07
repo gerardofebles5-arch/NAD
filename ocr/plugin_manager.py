@@ -130,11 +130,12 @@ class OCRBackendFactory:
         Solo registra las clases — no las instancia.
         """
         from ocr.backends import (
-            PaddleBackend, PaddleVEBackend, TesseractBackend,
+            PaddleBackend, PaddleVEBackend, TesseractBackend, EasyOCRBackend,
         )
         self._registry.register("paddle", PaddleBackend)
         self._registry.register("paddle_ve", PaddleVEBackend)
         self._registry.register("tesseract", TesseractBackend)
+        self._registry.register("easyocr", EasyOCRBackend)  # Python puro, funciona en plataformas gratuitas
 
         # Backends opcionales (disponibles solo si están instalados)
         try:
@@ -146,12 +147,6 @@ class OCRBackendFactory:
         try:
             from ocr.backends import SuryaBackend
             self._registry.register("surya", SuryaBackend)
-        except ImportError:
-            pass
-
-        try:
-            from ocr.backends import EasyOCRBackend
-            self._registry.register("easyocr", EasyOCRBackend)
         except ImportError:
             pass
 

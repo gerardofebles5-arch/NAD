@@ -1,18 +1,20 @@
 # ============================================================
-# NAD Scanner — Dependencias del proyecto (Render.com)
+# NAD Scanner — Dependencias del proyecto (Plataformas gratuitas)
 # ============================================================
 # Instalación: pip install -r requirements.txt
 #
-# Optimizado para deployment en Render.com con Tesseract OCR
+# Optimizado para deployment en plataformas gratuitas con EasyOCR (Python puro)
 
 # ── Procesamiento de imágenes ──
 opencv-python>=4.9.0
 numpy>=1.26.0
 Pillow>=10.2.0
 
-# ── OCR (Tesseract - Motor principal) ──
-# Requiere Tesseract binario del sistema (instalado en build script)
-pytesseract>=0.3.10
+# ── OCR (EasyOCR - Motor principal, Python puro) ──
+# No requiere binarios del sistema, funciona en plataformas gratuitas
+easyocr>=1.7.0
+torch>=2.0.0
+torchvision>=0.15.0
 
 # ── Google Drive API ──
 google-api-python-client>=2.120.0
