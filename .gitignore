@@ -13,6 +13,9 @@ venv/
 .venv/
 env/
 
+# Node modules (React frontend)
+node_modules/
+
 # Archivos temporales de ejecución
 output/
 *.log
@@ -23,6 +26,12 @@ token.json
 cert.pem
 key.pem
 .env
+
+# Archivos grandes (exceden límite de GitHub)
+cloudflared.exe
+flutter.zip
+ngrok.exe
+ngrok.zip
 
 # Editor
 .vscode/
