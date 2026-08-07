@@ -1,0 +1,54 @@
+{
+  "name": "nad-scanner-backend",
+  "project": {
+    "name": "NAD Scanner"
+  },
+  "services": [
+    {
+      "name": "web",
+      "type": "container",
+      "image": {
+        "location": "dockerfile",
+        "dockerfile": "Dockerfile",
+        "context": "/"
+      },
+      "ports": [
+        {
+          "port": 5000,
+          "protocol": "HTTP",
+          "public": true
+        }
+      ],
+      "environment": [
+        {
+          "key": "SUPABASE_URL",
+          "value": "CONFIGURE_IN_NORTHFLANK"
+        },
+        {
+          "key": "SUPABASE_ANON_KEY",
+          "value": "CONFIGURE_IN_NORTHFLANK"
+        },
+        {
+          "key": "GOOGLE_DRIVE_CREDENTIALS",
+          "value": "CONFIGURE_IN_NORTHFLANK"
+        },
+        {
+          "key": "TESSERACT_CMD",
+          "value": "/usr/bin/tesseract"
+        },
+        {
+          "key": "PORT",
+          "value": "5000"
+        }
+      ],
+      "resources": {
+        "cpu": 0.5,
+        "memory": 512
+      },
+      "scaling": {
+        "min": 1,
+        "max": 1
+      }
+    }
+  ]
+}
