@@ -5946,8 +5946,8 @@ if __name__ == '__main__':
 
     try:
         if ssl_available and not disable_ssl:
-            socketio.run(app, host=host, port=port, ssl_context=ssl_ctx)
+            socketio.run(app, host=host, port=port, ssl_context=ssl_ctx, allow_unsafe_werkzeug=True)
         else:
-            socketio.run(app, host=host, port=port)
+            socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
     except KeyboardInterrupt:
         print("\n\nServidor detenido.")
