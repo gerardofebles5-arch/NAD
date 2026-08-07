@@ -5919,6 +5919,8 @@ if __name__ == '__main__':
     print(f"\n  🌐 Servidor iniciado en:")
     print(f"     Local:    {protocol}://127.0.0.1:{port}")
     print(f"     Red:      {protocol}://{local_ip}:{port}")
+    print(f"     Host:     {host}")
+    print(f"     Puerto:   {port}")
     
     if disable_ssl:
         print(f"\n  ⚠ SSL desactivado (modo HTTP)")
