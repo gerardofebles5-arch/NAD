@@ -3,11 +3,15 @@ services:
     name: nad-scanner-backend
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+      pip install -r requirements.txt
     startCommand: python web_server.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
       - key: PORT
         value: 5000
+      - key: PYTORCH_CPU_ONLY
+        value: "1"
     healthCheckPath: /

@@ -3,18 +3,20 @@
 # ============================================================
 # Instalación: pip install -r requirements.txt
 #
-# Optimizado para deployment en plataformas gratuitas con EasyOCR (Python puro)
+# Optimizado para Render.com free tier (512MB RAM)
+# PyTorch CPU-only para reducir consumo de memoria
 
 # ── Procesamiento de imágenes ──
-opencv-python>=4.9.0
+opencv-python-headless>=4.9.0  # Headless para reducir tamaño
 numpy>=1.26.0
 Pillow>=10.2.0
 
 # ── OCR (EasyOCR - Motor principal, Python puro) ──
-# No requiere binarios del sistema, funciona en plataformas gratuitas
-easyocr>=1.7.0
+# PyTorch CPU-only para reducir consumo de memoria en Render.com
+# Instalación: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 torch>=2.0.0
 torchvision>=0.15.0
+easyocr>=1.7.0
 
 # ── Google Drive API ──
 google-api-python-client>=2.120.0
