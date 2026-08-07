@@ -39,4 +39,4 @@ ENV TESSERACT_CMD=/usr/bin/tesseract
 EXPOSE 5000
 
 # Comando de inicio
-CMD ["python", "main.py"]
+CMD ["python", "web_server.py"]
