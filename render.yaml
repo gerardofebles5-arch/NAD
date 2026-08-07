@@ -14,4 +14,6 @@ services:
         value: 5000
       - key: PYTORCH_CPU_ONLY
         value: "1"
+      - key: DISABLE_SSL
+        value: "1"
     healthCheckPath: /
