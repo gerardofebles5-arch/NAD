@@ -6,7 +6,8 @@ services:
     buildCommand: |
       pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
       pip install -r requirements.txt
-    startCommand: python web_server.py
+      pip install gunicorn eventlet
+    startCommand: gunicorn -k eventlet -w 1 -b 0.0.0.0:$PORT web_server:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
